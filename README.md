@@ -1,0 +1,33 @@
+# DSH Peer Sync · 局域网双端同步
+
+**简体中文** · [English](README.en.md) · [下载最新版](https://github.com/yuguanghang516/dsh-peer-sync/releases/latest)
+
+在电脑上聊到一半，拿起手机，打开同名对话继续。DSH Peer Sync 让 **Windows 上的 DeepSeek Harness** 和 **安卓 DSH Go 的本机引擎** 在同一 Wi‑Fi 下交换聊天、文件和选定的插件。两端各自在本机运行，重新连上后补传，无需云盘、Syncthing 或 USB。
+
+| 想同步什么 | 怎么用 |
+| --- | --- |
+| 聊天记录与原标题 | 在配对的工作区里聊天。两个引擎运行时约每 30 秒检查一次；两边离线续写同一条聊天时保留分支。 |
+| 文档和图片 | 放进工作区里的 `DSH-Shared`。常用文档和媒体格式支持单文件 16 MiB；两端同时改动的另一份保存在同步缓存的 `file-conflicts` 中。 |
+| 插件 | 两端交换插件清单。可移植插件按名单互传安装包，开启自动安装后补装或升级至较新的稳定版。默认名单只有 `dsh-free-search`。 |
+
+### 开始使用
+
+1. [下载发布页里的 ZIP](https://github.com/yuguanghang516/dsh-peer-sync/releases/latest)，解压到电脑。手机先在 DSH Go 中启动一次本机引擎。
+2. 在 Windows 的解压目录打开 PowerShell。把下面两个目录和手机 Wi‑Fi 地址换成自己的。Python 需要安装 `cryptography`：
+
+   ```powershell
+   py -m pip install cryptography
+   py pair.py --windows-home "D:\dsh\.dsh" --windows-workspace "D:\dsh\workspace" --phone-ip 192.168.1.20
+   ```
+
+3. 把 `private-pair/windows` 中的设置文件放进电脑的 DSH 数据目录，证书放进其 `peer-sync-packages` 子目录。手机使用 `private-pair/android`：设置文件放进引擎内的 `/root/.dsh`，证书和私钥放进 `/root/.dsh/peer-sync-packages`。没有子目录就创建。**每对设备单独配对，分享时只发发布页的 ZIP。**
+4. 两端分别安装 ZIP 里的同一个 tgz。电脑在 DSH CLI 中使用 `dsh plugin --profile desktop add "file:安装包绝对路径"`；手机将包放进下载目录，在 DSH Go 本机终端执行 `dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-0.4.0.tgz"`。重启两个引擎。
+5. 在电脑的 `DSH-Shared` 放一个新的文本文件，然后在手机工作区的同名目录查看。首次传输可等一至两个轮询周期。
+
+### 兼容性与边界
+
+已在 DSH Desktop 0.2.2-rc.5 与 DSH Go 1.2.0（引擎 0.2.2-rc.1）上真机验证。测试中比对了 17 条会话的事件内容，16 条有原标题的会话在两端恢复了原标题；免费搜索插件也在手机上从 0.9.19 自动升级到了电脑的 0.9.73。这是一组实测环境，其他版本欢迎反馈。
+
+仅配对可信设备。聊天快照和共享文件保存在各自的本地磁盘，局域网传输使用 TLS。插件只有同时列入 `portablePlugins` 和 `autoInstallPlugins` 才会自动安装，重启引擎后加载。同步不传播删除；聊天附件、账号凭据和插件的个人设置不自动迁移。引擎休眠时暂停。请避免同时用其他工具直接镜像 DSH 的 sessions 目录。
+
+如果这个插件让你顺利在两台设备间接着聊，欢迎点个 **Star**。遇到问题请在 [Issues](https://github.com/yuguanghang516/dsh-peer-sync/issues) 附上两端版本和现象，请勿上传聊天内容、配对文件或 API 密钥。
