@@ -1,0 +1,9 @@
+private-pair/
+*.key
+*.pem
+*.crt
+peer-sync-settings.json
+node_modules/
+__pycache__/
+*.tgz
+*.zip
