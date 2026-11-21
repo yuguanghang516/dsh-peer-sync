@@ -21,7 +21,7 @@
    ```
 
 3. 把 `private-pair/windows` 中的设置文件放进电脑的 DSH 数据目录，证书放进其 `peer-sync-packages` 子目录。手机使用 `private-pair/android`：设置文件放进引擎内的 `/root/.dsh`，证书和私钥放进 `/root/.dsh/peer-sync-packages`。没有子目录就创建。**每对设备单独配对，分享时只发发布页的 ZIP。**
-4. 两端分别安装 ZIP 里的同一个 tgz。电脑在 DSH CLI 中使用 `dsh plugin --profile desktop add "file:安装包绝对路径"`；手机将包放进下载目录，在 DSH Go 本机终端执行 `dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-0.4.0.tgz"`。重启两个引擎。
+4. 两端分别安装 ZIP 里的同一个 tgz。电脑在 DSH CLI 中使用 `dsh plugin --profile desktop add "file:安装包绝对路径"`；手机将包放进下载目录，在 DSH Go 本机终端执行 `dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-0.5.0.tgz"`。重启两个引擎。
 5. 在电脑的 `DSH-Shared` 放一个新的文本文件，然后在手机工作区的同名目录查看。首次传输可等一至两个轮询周期。
 
 ### 兼容性与边界
@@ -31,3 +31,8 @@
 仅配对可信设备。聊天快照和共享文件保存在各自的本地磁盘，局域网传输使用 TLS。插件只有同时列入 `portablePlugins` 和 `autoInstallPlugins` 才会自动安装，重启引擎后加载。同步不传播删除；聊天附件、账号凭据和插件的个人设置不自动迁移。引擎休眠时暂停。请避免同时用其他工具直接镜像 DSH 的 sessions 目录。
 
 如果这个插件让你顺利在两台设备间接着聊，欢迎点个 **Star**。遇到问题请在 [Issues](https://github.com/yuguanghang516/dsh-peer-sync/issues) 附上两端版本和现象，请勿上传聊天内容、配对文件或 API 密钥。
+
+### 插件自身更新
+作者：yuguanghang516 · 仓库：https://github.com/yuguanghang516/dsh-peer-sync
+
+启动后和每 24 小时自动检查 GitHub 正式版。新版经 SHA-256 校验后保存到 DSH 数据目录的 peer-sync-updates，由你选择何时安装。在对应 profile 目录运行 `node node_modules/dsh-peer-sync/update.js` 手动检查；加 `--download` 下载新版。配对设置中 autoDownloadUpdates 设为 false 即只检查，autoCheckUpdates 设为 false 可关闭自动检查。旧版本需手动升级到 0.5.0 一次。

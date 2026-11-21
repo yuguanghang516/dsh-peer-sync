@@ -1,3 +1,4 @@
+import {scheduleUpdates} from './update.js'
 import {syncFiles,packAddons,receiveAddons} from './extras.js'
 import {serve,exchange} from './lan.js'
 import * as fs from 'node:fs/promises'
@@ -66,6 +67,7 @@ export async function transfer(ctx,workspace,cwd,snapshot) {
 
 export function apply(ctx,cfg={}) {
   if(!cfg.device){const home=process.env.DSH_HOME||path.join(os.homedir(),'.dsh');try{cfg=JSON.parse(readFileSync(path.join(home,'peer-sync-settings.json'),'utf8'))}catch(e){ctx.logger.warn('Peer sync settings unavailable: '+e.code);return}}
+  scheduleUpdates(ctx,cfg)
   const side=cfg.device, directory=cfg.exchange, root=cfg.workspace
   if(!platforms.includes(side)||!path.isAbsolute(directory||'')||!path.isAbsolute(root||'')){
     ctx.logger.warn('Configure device, exchange and workspace before starting sync')

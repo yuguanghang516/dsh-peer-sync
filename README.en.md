@@ -15,7 +15,7 @@ Start a conversation in DeepSeek Harness on Windows and continue it under the sa
    ```
 
 3. From the generated **windows** folder, copy `peer-sync-settings.json` to the desktop data directory and `peer.crt` to its `peer-sync-packages` subdirectory. From **android**, copy the settings to `/root/.dsh` inside the phone engine, and the certificate and private key to `/root/.dsh/peer-sync-packages`. Create the subdirectories if necessary. Generate a fresh pair for each user. Never distribute the generated files.
-4. Install the bundled tgz in both engines. On the desktop run `dsh plugin --profile desktop add "file:ABSOLUTE_PATH_TO_TGZ"`. On the phone, place the package in Downloads and run `dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-0.4.0.tgz"` in the local DSH Go terminal. Restart both engines. If Windows has no global dsh command, use the desktop install’s `resources/runtime/cli/bin/dsh.cmd`.
+4. Install the bundled tgz in both engines. On the desktop run `dsh plugin --profile desktop add "file:ABSOLUTE_PATH_TO_TGZ"`. On the phone, place the package in Downloads and run `dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-0.5.0.tgz"` in the local DSH Go terminal. Restart both engines. If Windows has no global dsh command, use the desktop install’s `resources/runtime/cli/bin/dsh.cmd`.
 5. Put a small text file in the desktop workspace’s `DSH-Shared` directory and look for it in the phone workspace after one or two polling cycles.
 
 ### What syncs
@@ -27,3 +27,8 @@ Start a conversation in DeepSeek Harness on Windows and continue it under the sa
 Tested with DSH Desktop 0.2.2-rc.5 and DSH Go 1.2.0 (engine 0.2.2-rc.1). Device tests compared event histories for 17 sessions, restored all 16 existing titles, and upgraded Free Search from 0.9.19 to 0.9.73 on Android. Sleeping engines pause sync. Pair only trusted devices; transport is encrypted, while the local cache contains readable chat snapshots.
 
 If it helps you, a **Star** is welcome. For [bug reports](https://github.com/yuguanghang516/dsh-peer-sync/issues), include the two engine versions and symptoms. Leave out private messages, credentials and pairing files.
+
+### Updating Peer Sync
+Author: yuguanghang516 · Repository: https://github.com/yuguanghang516/dsh-peer-sync
+
+Checks the latest stable GitHub Release after startup and every 24 hours. A newer package is verified against the release asset SHA-256 and saved under peer-sync-updates in your DSH data directory. Install it when ready. From your profile directory run `node node_modules/dsh-peer-sync/update.js` to check manually; append `--download` to download. Set autoDownloadUpdates to false for checks only, or autoCheckUpdates to false for manual mode. Upgrade older versions manually once.

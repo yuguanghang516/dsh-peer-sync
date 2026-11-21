@@ -1,2 +1,25 @@
-{"name":"dsh-peer-sync","version":"0.4.0","type":"module","main":"index.js","files":["index.js","lan.js","extras.js","discovery.js","cordis.patch.yml","README.txt","pair.py"],"dsh":{"bundle":{"patch":"cordis.patch.yml"}}}
-
+{
+  "name": "dsh-peer-sync",
+  "version": "0.5.0",
+  "type": "module",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "lan.js",
+    "extras.js",
+    "discovery.js",
+    "cordis.patch.yml",
+    "README.txt",
+    "pair.py",
+    "update.js",
+    "README.md",
+    "README.en.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "cordis.patch.yml"
+    }
+  },
+  "author": "yuguanghang516",
+  "repository": "https://github.com/yuguanghang516/dsh-peer-sync.git"
+}
