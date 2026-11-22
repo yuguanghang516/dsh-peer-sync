@@ -1,6 +1,7 @@
 {
   "name": "dsh-peer-sync",
-  "version": "0.7.2",
+  "version": "0.7.3",
+  "description": "DSH LAN sync plugin: keep Windows DeepSeek Harness and Android DSH Go sessions, shared files and plugins in step over Wi-Fi.",
   "type": "module",
   "main": "index.js",
   "files": [
@@ -14,8 +15,22 @@
     "update.js",
     "README.md",
     "README.en.md",
-    "attachments.js"
+    "attachments.js",
+    "LICENSE"
   ],
+  "keywords": [
+    "dsh-plugin",
+    "dsh-bundle",
+    "deepseek-harness",
+    "dsh-go",
+    "lan-sync",
+    "peer-sync",
+    "session-sync"
+  ],
+  "license": "MIT",
+  "engines": {
+    "dsh": ">=0.2.2-rc.1 <0.3.0-0"
+  },
   "dsh": {
     "bundle": {
       "patch": "cordis.patch.yml"
