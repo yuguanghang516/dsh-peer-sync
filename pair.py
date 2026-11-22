@@ -26,6 +26,7 @@ for side in (['phone-a','phone-b'] if a.two_phones else ['windows','android']):
     workspace=str(Path(a.windows_workspace).resolve()) if side=='windows' else '/root/workspace'
     prefix=str(home).replace('\\','/')
     cfg=dict(device=side,workspace=workspace,exchange=prefix+('/peer-sync-cache-mobile' if a.two_phones else '/peer-sync-cache'),profileDirectory=prefix+'/profiles/'+('desktop' if side=='windows' else 'web'),sharedDirectory=workspace+'/DSH-Shared',portablePlugins=['dsh-free-search'],autoInstallPlugins=['dsh-free-search'])
+    cfg['syncAllPlugins']=a.two_phones
     cfg['lan']=dict(key=secret,port=39463,certFile=prefix+'/peer-sync-packages/peer.crt')
     if side in ('android','phone-a'):
         cfg['lan'].update(bind='0.0.0.0',privateKeyFile=prefix+'/peer-sync-packages/peer.key')

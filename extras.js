@@ -58,7 +58,33 @@ export async function syncFiles(cfg,mine,peer){
   }
   await write(stateFile,JSON.stringify(state))
 }
-export async function packAddons(cfg,mine){
+const pluginName = /^(@[a-z0-9-]+\/)?[a-z0-9-]+$/
+const sharedPlugin = name => typeof name === 'string' && pluginName.test(name) && name !== 'dsh-peer-sync'
+
+async function packagePlugin(cfg,mine,name) {
+  const root=path.join(cfg.profileDirectory,'node_modules',name)
+  const contents=await get(path.join(root,'package.json'))
+  if(!contents)return
+  const manifest=JSON.parse(contents)
+  if(manifest.name!==name)return
+  const id=sha(name),out=path.join(mine,'addon-'+id+'.json'),marker=path.join(cfg.exchange,'packed-'+id)
+  if((await get(marker))?.toString()===manifest.version && await fs.stat(out).catch(()=>null))return
+  const stage=await fs.mkdtemp(path.join(cfg.exchange,'pack-'))
+  try{
+    const args=['pack','--ignore-scripts','--offline','--json','--pack-destination',stage]
+    let result
+    if(process.platform==='win32'){
+      // cmd receives only fixed arguments. npm writes the archive in the private staging directory.
+      result=await run('cmd.exe',['/d','/c','npm.cmd pack --ignore-scripts --offline --json --pack-destination "%npm_config_pack_destination%"'],{cwd:root,env:{...process.env,npm_config_pack_destination:stage},timeout:60000})
+    }else{result=await run('npm',args,{cwd:root,timeout:60000})}
+    const [archive]=JSON.parse(result.stdout)
+    const bytes=await fs.readFile(path.join(stage,path.basename(archive.filename)))
+    if(bytes.length>maxBytes)throw Error('Plugin package exceeds limit')
+    await write(out,JSON.stringify({name,version:manifest.version,hash:sha(bytes),body:bytes.toString('base64')}))
+    await write(marker,manifest.version)
+  }finally{await fs.rm(stage,{recursive:true,force:true})}
+}
+async function packSelectedAddons(cfg,mine){
   for(const name of cfg.portablePlugins||[]){
     if(!/^(@[a-z0-9-]+\/)?[a-z0-9-]+$/.test(name))throw Error('Invalid plugin name')
     const root=path.join(cfg.profileDirectory,'node_modules',name)
@@ -90,20 +116,53 @@ export async function packAddons(cfg,mine){
     }finally{await fs.rm(stage,{recursive:true,force:true})}
   }
 }
-export async function receiveAddons(cfg,peer){
-  for(const pkg of cfg.portablePlugins||[]){
-    const raw=await get(path.join(peer,'addon-'+sha(pkg)+'.json'))
-    if(!raw)continue
-    const v=JSON.parse(raw),b=Buffer.from(v.body,'base64')
-    if(v.name!==pkg||!/^\d+[.a-z0-9+-]*$/i.test(v.version)||sha(b)!==v.hash||b.length>maxBytes)throw Error('Invalid portable package')
-    const file=path.join(cfg.exchange,'received-plugins',pkg.replace(/^@/,'').replace('/','-')+'-'+v.version+'.tgz')
-    const exists=await get(file)
-    if(!exists||sha(exists)!==v.hash)await write(file,b)
-    if(!cfg.autoInstallPlugins?.includes(pkg))continue
-    try{await alignPlugin(cfg,pkg,v,file)}catch(e){
-      await write(path.join(cfg.exchange,'plugin-install-status-'+sha(pkg)+'.json'),JSON.stringify({plugin:pkg,version:v.version,error:e.message.split('\n')[0]}))
+export async function packAddons(cfg,mine){
+  if(!cfg.syncAllPlugins)return packSelectedAddons(cfg,mine)
+  const names=JSON.parse(await fs.readFile(path.join(mine,'plugins.json'))).map(p=>p.name)
+  for(const name of names.filter(sharedPlugin)){
+    try{await packagePlugin(cfg,mine,name)}catch(e){
+      await write(path.join(cfg.exchange,'plugin-pack-status-'+sha(name)+'.json'),JSON.stringify({plugin:name,error:e.message.split('\n')[0]}))
     }
   }
+}
+
+async function enableBundled(cfg,inventory){
+  if(!cfg.syncAllPlugins || !['phone-a','phone-b','android'].includes(cfg.device))return
+  const file=path.join(cfg.profileDirectory,'package.json')
+  const original=await fs.readFile(file,'utf8'),manifest=JSON.parse(original)
+  const bundles=manifest.dsh?.profile?.bundles
+  if(!Array.isArray(bundles))return
+  for(const {name,version} of inventory){
+    if(version!==null || !sharedPlugin(name) || !name.startsWith('@deepseek-ai/') || bundles.includes(name))continue
+    const data=await get(path.join('/opt/dsh/node_modules',name,'package.json'))
+    if(!data)continue
+    const local=JSON.parse(data)
+    if(local.name===name && local.dsh?.bundle?.patch)bundles.push(name)
+  }
+  if(bundles.length===JSON.parse(original).dsh.profile.bundles.length)return
+  if(await fs.readFile(file,'utf8')!==original)return
+  await write(file,JSON.stringify(manifest,null,2)+'\n')
+}
+
+export async function receiveAddons(cfg,peer){
+  const inventory=cfg.syncAllPlugins ? JSON.parse(await get(path.join(peer,'plugins.json'))||'[]') : []
+  const names=cfg.syncAllPlugins ? inventory.map(p=>p.name) : cfg.portablePlugins||[]
+  for(const pkg of names.filter(sharedPlugin)){
+    try{
+      const raw=await get(path.join(peer,'addon-'+sha(pkg)+'.json'))
+      if(!raw)continue
+      const v=JSON.parse(raw),b=Buffer.from(v.body,'base64')
+      if(v.name!==pkg||!/^\d+[.a-z0-9+-]*$/i.test(v.version)||sha(b)!==v.hash||b.length>maxBytes)throw Error('Invalid portable package')
+      const file=path.join(cfg.exchange,'received-plugins',pkg.replace(/^@/,'').replace('/','-')+'-'+v.version+'.tgz')
+      const exists=await get(file)
+      if(!exists||sha(exists)!==v.hash)await write(file,b)
+      if(!cfg.syncAllPlugins && !cfg.autoInstallPlugins?.includes(pkg))continue
+      await alignPlugin(cfg,pkg,v,file)
+    }catch(e){
+      await write(path.join(cfg.exchange,'plugin-install-status-'+sha(pkg)+'.json'),JSON.stringify({plugin:pkg,error:e.message.split('\n')[0]}))
+    }
+  }
+  await enableBundled(cfg,inventory)
 }
 
 const retryAfter=new Map()
