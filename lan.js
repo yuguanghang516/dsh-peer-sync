@@ -5,7 +5,9 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import {createHash,randomUUID} from 'node:crypto'
 
-const allowed = /^(plugins|(?:data|addon)-[a-f0-9]{64}|session-[a-z0-9-]{1,100})\.json$/i
+const blob = /^attachment-([a-f0-9]{64})\.bin$/
+const jsonName = /^(plugins|(?:data|addon)-[a-f0-9]{64}|session-[a-z0-9-]{1,100})\.json$/i
+const allowed={test:name=>jsonName.test(name)||blob.test(name)}
 const limit = 64 * 1024 * 1024
 const digest = b => createHash('sha256').update(b).digest('hex')
 async function body(stream) {
@@ -17,10 +19,10 @@ async function body(stream) {
   }
   return Buffer.concat(chunks)
 }
-async function manifest(dir){
+async function manifest(dir, blobs=true){
   const result={}
   for(const name of await fs.readdir(dir)){
-    if(allowed.test(name)){
+    if(allowed.test(name) && (blobs||!blob.test(name))){
       const file=path.join(dir,name)
       if((await fs.stat(file)).size>limit)throw Error('Snapshot exceeds 64 MiB: '+name)
       result[name]=digest(await fs.readFile(file))
@@ -30,7 +32,8 @@ async function manifest(dir){
 }
 async function save(dir,name,bytes){
   if(!allowed.test(name))throw Error('Unexpected filename')
-  JSON.parse(bytes.toString())
+  const match=blob.exec(name)
+  if(match){if(digest(bytes)!==match[1])throw Error('Bad attachment checksum')}else JSON.parse(bytes.toString())
   const tmp=path.join(dir,randomUUID()+'.tmp')
   try{await fs.writeFile(tmp,bytes,{flag:'wx',mode:0o600});await fs.rename(tmp,path.join(dir,name))}
   finally{await fs.rm(tmp,{force:true})}
@@ -48,7 +51,7 @@ export async function serve(cfg,mine,peer){
       if(!lanIP(req.socket.remoteAddress||'')){res.writeHead(403).end();return}
       if(req.headers.authorization!=='Bearer '+cfg.key){res.writeHead(403).end();return}
       if(req.url==='/manifest'&&req.method==='GET'){
-        res.end(JSON.stringify({local:await manifest(mine),received:await manifest(peer)}));return
+        res.end(JSON.stringify({attachments:true,local:await manifest(mine,req.headers['x-peer-attachments']==='1'),received:await manifest(peer)}));return
       }
       const name=req.url.slice(1)
       if(!allowed.test(name)){res.writeHead(404).end();return}
@@ -68,7 +71,7 @@ async function direct(cfg,mine,peer){
     return new Promise((ok,fail)=>{
       const req=https.request({...tls,hostname:cfg.host,port:cfg.port||39463,method,path:uri,agent:false,
         // Pin the paired device certificate and require the matching DNS identity.
-        servername:'dsh-peer.local',ca:readFileSync(cfg.certFile),headers:{authorization:'Bearer '+cfg.key}},async res=>{
+        servername:'dsh-peer.local',ca:readFileSync(cfg.certFile),headers:{'x-peer-attachments':'1',authorization:'Bearer '+cfg.key}},async res=>{
           try{if(res.statusCode>=300)throw Error('Sync HTTP '+res.statusCode);ok(await body(res))}catch(e){fail(e)}
         })
       req.setTimeout(30000,()=>req.destroy(Error('Peer timeout')))
@@ -78,7 +81,7 @@ async function direct(cfg,mine,peer){
   const remote=JSON.parse((await request('GET','/manifest')).toString())
   const local=await manifest(mine),received=await manifest(peer)
   for(const [name,hash] of Object.entries(local)){
-    if(hash!==remote.received[name])await request('PUT','/'+name,await fs.readFile(path.join(mine,name)))
+    if((remote.attachments||!blob.test(name)) && hash!==remote.received[name])await request('PUT','/'+name,await fs.readFile(path.join(mine,name)))
   }
   for(const [name,hash] of Object.entries(remote.local)){
     if(!allowed.test(name))throw Error('Unexpected manifest entry')

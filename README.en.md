@@ -20,7 +20,7 @@ Start a conversation in DeepSeek Harness on Windows and continue it under the sa
 
 ### What syncs
 
-- **Chat:** Session events and original titles. Concurrent offline edits can produce separate branches. Deletions do not propagate, and external attachments are not automatically transferred.
+- **Chat:** Session events and original titles. Concurrent offline edits can produce separate branches. Referenced DSH images and file attachments sync with the session. Existing sessions are backfilled when a paired device still has the original bytes.
 - **Files:** Supported documents and media in `DSH-Shared`, up to 16 MiB per file. Conflicting versions are kept under `file-conflicts` in the local exchange cache.
 - **Plugins:** Android phone pairs discover installed profile bundles and install missing or newer compatible packages. Built-in bundles use the receiving engine’s own copy. Desktop pairs keep the selected-package list, initially Free Search.
 
@@ -37,3 +37,5 @@ Checks the latest stable GitHub Release after startup and every 24 hours. A newe
 Run both DSH Go local engines on the same Wi-Fi. Generate one fresh pair with `python pair.py --two-phones --phone-ip 192.168.1.20 --out private-pair` (use phone A's address). Install the tgz on both web profiles. Copy each device's settings from its own phone-a or phone-b folder to /root/.dsh; put certificates and A's private key in /root/.dsh/peer-sync-packages. Restart both engines. A listens and B connects; chats, titles, shared files and approved plugins flow both ways without a PC. One pair is active at a time; back up existing settings and certificates before switching.
 
 Existing phone pairs can enable this in both pairing settings with `"syncAllPlugins": true` (JSON). Restart both engines after upgrading. Peer Sync itself is updated separately on each device. Plugin settings, accounts and keys stay local. The archive limit is 16 MiB. Dependencies may require internet access. Check plugin-pack-status and plugin-install-status in the exchange directory for individual failures.
+
+Version 0.7.2 also transfers images returned by tools. Attachments are verified by SHA-256; the per-object transfer limit is 64 MiB. Upgrade both ends. Missing hashes are listed in attachment-status.json in the exchange directory.

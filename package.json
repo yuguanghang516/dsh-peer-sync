@@ -1,6 +1,6 @@
 {
   "name": "dsh-peer-sync",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "type": "module",
   "main": "index.js",
   "files": [
@@ -13,7 +13,8 @@
     "pair.py",
     "update.js",
     "README.md",
-    "README.en.md"
+    "README.en.md",
+    "attachments.js"
   ],
   "dsh": {
     "bundle": {

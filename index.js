@@ -1,3 +1,4 @@
+import {collectAttachments,syncAttachments} from './attachments.js'
 import {scheduleUpdates} from './update.js'
 import {syncFiles,packAddons,receiveAddons} from './extras.js'
 import {serve,exchange} from './lan.js'
@@ -87,6 +88,8 @@ export function apply(ctx,cfg={}) {
     if(receipt)agent.model.select({...route,provider:defaults.provider})
   })
   const seen=new Map()
+  const refs=new Map()
+  const attachmentRoot=path.join(cfg.profileDirectory ? path.dirname(path.dirname(cfg.profileDirectory)) : (process.env.DSH_HOME||path.join(os.homedir(),'.dsh')),'attachments','v1')
   let running=false,stopped=false,server
   async function tick(){
     if(running||stopped)return
@@ -116,10 +119,12 @@ export function apply(ctx,cfg={}) {
           const file=path.join(mine,id+'.json'), revision=JSON.stringify(row.revision)
           if(seen.get(id)===revision && await fs.stat(file).catch(()=>null))continue
           const h=await ctx.sessionPersistence.open(id,'read')
-          try{await atomic(file,{version:1,header:h.header,cut:h.inheritedEventCount,events:(await h.read()).events})}finally{await h.close()}
+          try{const {events}=await h.read();collectAttachments(events,refs);await atomic(file,{version:1,header:h.header,cut:h.inheritedEventCount,events})}finally{await h.close()}
           seen.set(id,revision)
         }catch(e){await atomic(path.join(directory,'export-error.json'),{id,message:e.message});ctx.logger.warn(id+': '+e.message)}
       }
+      const missing=await syncAttachments(attachmentRoot,mine,peer,refs)
+      await atomic(path.join(directory,'attachment-status.json'),{missing})
       await syncFiles(cfg,mine,peer);await packAddons(cfg,mine);
       if(cfg.lan?.bind && !server)server=await serve(cfg.lan,mine,peer)
       if(cfg.lan?.host)await exchange(cfg.lan,mine,peer)
@@ -132,6 +137,10 @@ export function apply(ctx,cfg={}) {
         try{
           const snap=JSON.parse(await fs.readFile(path.join(peer,name),'utf8'))
           if(name!==snap.header.id+'.json')throw Error('Session ID mismatch')
+          const incomingRefs=new Map()
+          collectAttachments(snap.events,incomingRefs)
+          for(const [key,value] of incomingRefs)refs.set(key,value)
+          await syncAttachments(attachmentRoot,mine,peer,incomingRefs)
           try{await transfer(ctx,ws,cwd,snap)}
           catch(e){
             if(!e.message.startsWith('Offline edits diverged'))throw e

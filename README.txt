@@ -1,7 +1,7 @@
-DSH Peer Sync 0.7.0（安卓 DSH Go / Windows DSH Desktop）
+DSH Peer Sync 0.7.2（安卓 DSH Go / Windows DSH Desktop）
 本机引擎均运行时每30秒交换一次。手机作为局域网服务端，电脑连接手机；TLS 验证配对证书，手机验证配对密钥。IP 变化时客户端可通过带认证的 UDP 广播寻找手机。访客 Wi-Fi 客户隔离、系统省电挂起引擎、VPN 局域网屏蔽都会阻止同步。
 
-聊天：通过 DSH 的接口读取、追加并关联到本机工作区。新对话双向同步，断线后补齐；同一条对话两边都有不同的新事件时保留独立分支。关闭仍占用写锁的会话可让另一端的后续记录在下次同步导入。聊天同步不重放历史工具。删除不会传到另一端。单个交换快照上限64 MiB，附件不自动随会话搬运。
+聊天：通过 DSH 的接口读取、追加并关联到本机工作区。新对话双向同步，断线后补齐；同一条对话两边都有不同的新事件时保留独立分支。关闭仍占用写锁的会话可让另一端的后续记录在下次同步导入。聊天同步不重放历史工具。删除不会传到另一端。单个交换快照上限64 MiB，会话引用的图片和文件随记录传输。
 文件：在工作区下的 DSH-Shared 放入需要共享的文档、图片等。单文件上限16 MiB。双端修改冲突时，接收的另一版在各自 peer-sync-cache/file-conflicts 中保留。仅支持列明的常用文档和媒体格式。
 双手机配对自动发现插件，用配对手机发来的安装包补装缺失插件或升级。引擎自带模块使用本机版本。电脑配对沿用 portablePlugins 与 autoInstallPlugins 名单。
 电脑设置 D:\dsh\.dsh\peer-sync-settings.json；手机引擎内 /root/.dsh/peer-sync-settings.json。设置含配对密钥，勿分享。每台主机使用自己的绝对路径。交换缓存留在本机，不要再用 Syncthing 双向复制 .dsh/sessions 和 profiles。received-plugins 在各自的 exchange 目录内。network-status.json 是最近一次网络轮询，receipts 是本机导入回执。关闭 App 引擎或禁用插件即可暂停。
@@ -19,3 +19,5 @@ py pair.py --windows-home "D:\dsh\.dsh" --windows-workspace "D:\dsh\workspace" -
 两台手机各安装同一份 tgz（web profile）。分别将 phone-a、phone-b 里的 peer-sync-settings.json 放到各自引擎的 /root/.dsh，证书和 A 的私钥放到各自 /root/.dsh/peer-sync-packages。A 监听，B 主动连接，两边都能发送和接收。重启后在 A 的 DSH-Shared 放一个小文件，在 B 核对，再反向测试。原标题、聊天续写和允许名单内插件使用同一套同步规则。每个引擎同一时间使用一套配对；从已有电脑配对切换前，备份两端原设置及证书目录。请勿公开或交叉混用配对密钥。
 
 新版双手机配对默认开启全量插件合并。旧配对可在双方配对设置 JSON 中加入字段 `"syncAllPlugins": true`，升级后重启本机引擎。同步插件本身单独更新。插件账户、密钥和个人设置保留在各自设备。单插件安装包上限 16 MiB，安装依赖可能需要联网。个别插件失败可查看交换目录中的 plugin-pack-status 和 plugin-install-status 文件。
+
+v0.7.2 会补传历史会话引用的图片、工具返回的图片和文件附件。两端均升级后，只要配对设备仍保有原件，就会自动补齐并校验 SHA-256。单个附件传输上限 64 MiB。交换目录中的 attachment-status.json 列出尚未找到的附件哈希。
