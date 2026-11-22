@@ -21,7 +21,7 @@
    ```
 
 3. 把 `private-pair/windows` 中的设置文件放进电脑的 DSH 数据目录，证书放进其 `peer-sync-packages` 子目录。手机使用 `private-pair/android`：设置文件放进引擎内的 `/root/.dsh`，证书和私钥放进 `/root/.dsh/peer-sync-packages`。没有子目录就创建。**每对设备单独配对，分享时只发发布页的 ZIP。**
-4. 两端分别安装 ZIP 里的同一个 tgz。电脑在 DSH CLI 中使用 `dsh plugin --profile desktop add "file:安装包绝对路径"`；手机将包放进下载目录，在 DSH Go 本机终端执行 `dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-0.5.0.tgz"`。重启两个引擎。
+4. 两端分别安装 ZIP 里的同一个 tgz。电脑在 DSH CLI 中使用 `dsh plugin --profile desktop add "file:安装包绝对路径"`；手机将包放进下载目录，在 DSH Go 本机终端执行 `dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-0.6.0.tgz"`。重启两个引擎。
 5. 在电脑的 `DSH-Shared` 放一个新的文本文件，然后在手机工作区的同名目录查看。首次传输可等一至两个轮询周期。
 
 ### 兼容性与边界
@@ -35,4 +35,9 @@
 ### 插件自身更新
 作者：yuguanghang516 · 仓库：https://github.com/yuguanghang516/dsh-peer-sync
 
-启动后和每 24 小时自动检查 GitHub 正式版。新版经 SHA-256 校验后保存到 DSH 数据目录的 peer-sync-updates，由你选择何时安装。在对应 profile 目录运行 `node node_modules/dsh-peer-sync/update.js` 手动检查；加 `--download` 下载新版。配对设置中 autoDownloadUpdates 设为 false 即只检查，autoCheckUpdates 设为 false 可关闭自动检查。旧版本需手动升级到 0.5.0 一次。
+启动后和每 24 小时自动检查 GitHub 正式版。新版经 SHA-256 校验后保存到 DSH 数据目录的 peer-sync-updates，由你选择何时安装。在对应 profile 目录运行 `node node_modules/dsh-peer-sync/update.js` 手动检查；加 `--download` 下载新版。配对设置中 autoDownloadUpdates 设为 false 即只检查，autoCheckUpdates 设为 false 可关闭自动检查。旧版本需手动升级到 0.6.0 一次。
+
+### 两台安卓手机互传（v0.6.0）
+两台手机都启动 DSH Go 本机引擎、连同一个 Wi-Fi。运行 `python pair.py --two-phones --phone-ip 192.168.1.20 --out private-pair`，把示例地址换成手机 A 的 Wi-Fi 地址。此命令只需运行一次，可以在电脑或装有 Python 与 cryptography 的环境中运行。生成后同步不需要电脑。
+
+两台手机各安装同一份 tgz（web profile）。分别将 phone-a、phone-b 里的 peer-sync-settings.json 放到各自引擎的 /root/.dsh，证书和 A 的私钥放到各自 /root/.dsh/peer-sync-packages。A 监听，B 主动连接，两边都能发送和接收。重启后在 A 的 DSH-Shared 放一个小文件，在 B 核对，再反向测试。原标题、聊天续写和允许名单内插件使用同一套同步规则。每个引擎同一时间使用一套配对；从已有电脑配对切换前，备份两端原设置及证书目录。请勿公开或交叉混用配对密钥。

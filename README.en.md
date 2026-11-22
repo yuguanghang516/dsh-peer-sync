@@ -15,7 +15,7 @@ Start a conversation in DeepSeek Harness on Windows and continue it under the sa
    ```
 
 3. From the generated **windows** folder, copy `peer-sync-settings.json` to the desktop data directory and `peer.crt` to its `peer-sync-packages` subdirectory. From **android**, copy the settings to `/root/.dsh` inside the phone engine, and the certificate and private key to `/root/.dsh/peer-sync-packages`. Create the subdirectories if necessary. Generate a fresh pair for each user. Never distribute the generated files.
-4. Install the bundled tgz in both engines. On the desktop run `dsh plugin --profile desktop add "file:ABSOLUTE_PATH_TO_TGZ"`. On the phone, place the package in Downloads and run `dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-0.5.0.tgz"` in the local DSH Go terminal. Restart both engines. If Windows has no global dsh command, use the desktop install’s `resources/runtime/cli/bin/dsh.cmd`.
+4. Install the bundled tgz in both engines. On the desktop run `dsh plugin --profile desktop add "file:ABSOLUTE_PATH_TO_TGZ"`. On the phone, place the package in Downloads and run `dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-0.6.0.tgz"` in the local DSH Go terminal. Restart both engines. If Windows has no global dsh command, use the desktop install’s `resources/runtime/cli/bin/dsh.cmd`.
 5. Put a small text file in the desktop workspace’s `DSH-Shared` directory and look for it in the phone workspace after one or two polling cycles.
 
 ### What syncs
@@ -32,3 +32,6 @@ If it helps you, a **Star** is welcome. For [bug reports](https://github.com/yug
 Author: yuguanghang516 · Repository: https://github.com/yuguanghang516/dsh-peer-sync
 
 Checks the latest stable GitHub Release after startup and every 24 hours. A newer package is verified against the release asset SHA-256 and saved under peer-sync-updates in your DSH data directory. Install it when ready. From your profile directory run `node node_modules/dsh-peer-sync/update.js` to check manually; append `--download` to download. Set autoDownloadUpdates to false for checks only, or autoCheckUpdates to false for manual mode. Upgrade older versions manually once.
+
+### Two Android phones (v0.6.0)
+Run both DSH Go local engines on the same Wi-Fi. Generate one fresh pair with `python pair.py --two-phones --phone-ip 192.168.1.20 --out private-pair` (use phone A's address). Install the tgz on both web profiles. Copy each device's settings from its own phone-a or phone-b folder to /root/.dsh; put certificates and A's private key in /root/.dsh/peer-sync-packages. Restart both engines. A listens and B connects; chats, titles, shared files and approved plugins flow both ways without a PC. One pair is active at a time; back up existing settings and certificates before switching.

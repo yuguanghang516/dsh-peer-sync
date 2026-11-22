@@ -10,7 +10,7 @@ import { isDeepStrictEqual } from 'node:util'
 
 export const inject = ['workspaceRegistry', 'sessionPersistence']
 const validId = /^session-[a-z0-9-]{1,100}$/i
-const platforms = ['windows','android']
+const peers = new Map([['windows','android'],['android','windows'],['phone-a','phone-b'],['phone-b','phone-a']])
 async function atomic(file, value) {
   const tmp = file + '.' + randomUUID() + '.tmp'
   try {
@@ -69,11 +69,11 @@ export function apply(ctx,cfg={}) {
   if(!cfg.device){const home=process.env.DSH_HOME||path.join(os.homedir(),'.dsh');try{cfg=JSON.parse(readFileSync(path.join(home,'peer-sync-settings.json'),'utf8'))}catch(e){ctx.logger.warn('Peer sync settings unavailable: '+e.code);return}}
   scheduleUpdates(ctx,cfg)
   const side=cfg.device, directory=cfg.exchange, root=cfg.workspace
-  if(!platforms.includes(side)||!path.isAbsolute(directory||'')||!path.isAbsolute(root||'')){
+  if(!peers.has(side)||!path.isAbsolute(directory||'')||!path.isAbsolute(root||'')){
     ctx.logger.warn('Configure device, exchange and workspace before starting sync')
     return
   }
-  const mine=path.join(directory,side),peer=path.join(directory,platforms.find(x=>x!==side))
+  const mine=path.join(directory,side),peer=path.join(directory,peers.get(side))
   const seen=new Map()
   let running=false,stopped=false,server
   async function tick(){
