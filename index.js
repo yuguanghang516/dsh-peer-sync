@@ -74,6 +74,18 @@ export function apply(ctx,cfg={}) {
     return
   }
   const mine=path.join(directory,side),peer=path.join(directory,peers.get(side))
+  // A paired device can use a different login method for the same DeepSeek model.
+  // Select through the live agent so the historical request headers stay intact.
+  ctx.on?.('agent/created', async ({agent})=>{
+    if(!validId.test(agent.id) || !agent.model?.current)return
+    const route=agent.model.current()
+    const defaults=ctx.get?.('agentDefaultModel')?.currentSelection()
+    const authRoutes=['deepseek-official','deepseek-account']
+    if(!authRoutes.includes(route?.provider) || !authRoutes.includes(defaults?.provider) ||
+        route.provider===defaults.provider || route.model!==defaults.model)return
+    const receipt=await fs.stat(path.join(directory,'receipts',agent.id+'.json')).catch(()=>null)
+    if(receipt)agent.model.select({...route,provider:defaults.provider})
+  })
   const seen=new Map()
   let running=false,stopped=false,server
   async function tick(){
