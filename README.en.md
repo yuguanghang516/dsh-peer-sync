@@ -1,8 +1,32 @@
 # DSH Peer Sync
 
-[简体中文](README.md) · **English** · [Download the latest release](https://github.com/yuguanghang516/dsh-peer-sync/releases/latest)
+[![npm](https://img.shields.io/npm/v/dsh-peer-sync?label=npm&color=cb3837)](https://www.npmjs.com/package/dsh-peer-sync)
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![DSH](https://img.shields.io/badge/DSH-%E2%89%A50.2.2--rc.1%20%3C0.3-4B5563)](package.json)
+[![DSH Go](https://img.shields.io/badge/DSH%20Go-%E2%89%A51.0-3B82F6)](https://github.com/ccch1mneyyy/dsh-go-market)
+
+[简体中文](README.md) · **English** · [npm](https://www.npmjs.com/package/dsh-peer-sync) · [Download the latest release](https://github.com/yuguanghang516/dsh-peer-sync/releases/latest)
 
 Start a conversation in DeepSeek Harness on Windows and continue it under the same title in DSH Go on Android. Both devices run their own local engines. While they share a LAN, the plugin exchanges conversation history, selected files and portable plugins roughly every 30 seconds. No cloud storage, Syncthing or USB connection is required.
+
+### Install
+
+The plugin is on npm, so one command is enough (replace `web` with your profile name, see `ls ~/.dsh/profiles/`):
+
+```bash
+dsh plugin --profile web add dsh-peer-sync          # phone engine / web profile
+dsh plugin --profile desktop add dsh-peer-sync      # desktop profile
+```
+
+Or install it from a plugin market:
+
+- **DSH Go app**: Settings › Plugins › Plugin market, search `dsh-peer-sync` (`All` fills in from dshfind automatically; `Official / DSH Go ready` appears after review)
+- **DSH web / desktop**: Plugins › enable “Custom plugin market” › Discover › Add index source, then paste
+  `https://raw.githubusercontent.com/yuguanghang516/dsh-peer-sync/main/market/index.json`
+
+Restart the engine afterwards. **Syncing still needs one pairing step** (see Setup below); pairing files and private keys are never shipped with the package.
+
+Supported DSH range: `>=0.2.2-rc.1 <0.3.0`.
 
 ### Setup
 
@@ -15,7 +39,7 @@ Start a conversation in DeepSeek Harness on Windows and continue it under the sa
    ```
 
 3. From the generated **windows** folder, copy `peer-sync-settings.json` to the desktop data directory and `peer.crt` to its `peer-sync-packages` subdirectory. From **android**, copy the settings to `/root/.dsh` inside the phone engine, and the certificate and private key to `/root/.dsh/peer-sync-packages`. Create the subdirectories if necessary. Generate a fresh pair for each user. Never distribute the generated files.
-4. Install the bundled tgz in both engines. On the desktop run `dsh plugin --profile desktop add "file:ABSOLUTE_PATH_TO_TGZ"`. On the phone, place the package in Downloads and run `dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-0.6.0.tgz"` in the local DSH Go terminal. Restart both engines. If Windows has no global dsh command, use the desktop install’s `resources/runtime/cli/bin/dsh.cmd`.
+4. Install the same package in both engines. Skip this if you already installed from npm above. Otherwise run `dsh plugin --profile desktop add "file:ABSOLUTE_PATH_TO_TGZ"` on the desktop, place the package in Downloads on the phone and run `dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-0.7.3.tgz"` in the local DSH Go terminal. Restart both engines. If Windows has no global dsh command, use the desktop install’s `resources/runtime/cli/bin/dsh.cmd`.
 5. Put a small text file in the desktop workspace’s `DSH-Shared` directory and look for it in the phone workspace after one or two polling cycles.
 
 ### What syncs

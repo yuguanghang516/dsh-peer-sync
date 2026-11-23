@@ -1,6 +1,11 @@
 # DSH Peer Sync · 局域网双端同步
 
-**简体中文** · [English](README.en.md) · [下载最新版](https://github.com/yuguanghang516/dsh-peer-sync/releases/latest)
+[![npm](https://img.shields.io/npm/v/dsh-peer-sync?label=npm&color=cb3837)](https://www.npmjs.com/package/dsh-peer-sync)
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![DSH](https://img.shields.io/badge/DSH-%E2%89%A50.2.2--rc.1%20%3C0.3-4B5563)](package.json)
+[![DSH Go](https://img.shields.io/badge/DSH%20Go-%E2%89%A51.0-3B82F6)](https://github.com/ccch1mneyyy/dsh-go-market)
+
+**简体中文** · [English](README.en.md) · [npm](https://www.npmjs.com/package/dsh-peer-sync) · [下载最新版](https://github.com/yuguanghang516/dsh-peer-sync/releases/latest)
 
 在电脑上聊到一半，拿起手机，打开同名对话继续。DSH Peer Sync 让 **Windows 上的 DeepSeek Harness** 和 **安卓 DSH Go 的本机引擎** 在同一 Wi‑Fi 下交换聊天、文件和选定的插件。两端各自在本机运行，重新连上后补传，无需云盘、Syncthing 或 USB。
 
@@ -9,6 +14,23 @@
 | 聊天记录与原标题 | 在配对的工作区里聊天。两个引擎运行时约每 30 秒检查一次；两边离线续写同一条聊天时保留分支。 |
 | 文档和图片 | 放进工作区里的 `DSH-Shared`。常用文档和媒体格式支持单文件 16 MiB；两端同时改动的另一份保存在同步缓存的 `file-conflicts` 中。 |
 | 插件 | 双手机配对自动发现两端已启用的插件，合并安装清单。电脑配对默认只同步免费搜索。 |
+
+### 安装
+
+插件已发布到 npm，一条命令装上（把 `web` 换成你实际的 profile 名，用 `ls ~/.dsh/profiles/` 查看）：
+
+```bash
+dsh plugin --profile web add dsh-peer-sync          # 手机本机引擎 / 网页版
+dsh plugin --profile desktop add dsh-peer-sync      # 桌面版
+```
+
+也可以在插件市场里装：
+
+- **DSH Go App**：设置 › 插件 › 插件市场，搜索 `dsh-peer-sync`（「全部」分区靠 dshfind 自动收录，「官方 / 适配 DSH Go」分区审核合并后出现）
+- **DSH 网页版 / 桌面版**：插件 › 打开「自定义插件索引」→ 发现 › 添加索引源，填
+  `https://raw.githubusercontent.com/yuguanghang516/dsh-peer-sync/main/market/index.json`
+
+装完重启引擎生效。**同步本身还要做一次配对**（见下面的「开始使用」），配对文件和私钥不会随包分发。
 
 ### 开始使用
 
@@ -21,12 +43,12 @@
    ```
 
 3. 把 `private-pair/windows` 中的设置文件放进电脑的 DSH 数据目录，证书放进其 `peer-sync-packages` 子目录。手机使用 `private-pair/android`：设置文件放进引擎内的 `/root/.dsh`，证书和私钥放进 `/root/.dsh/peer-sync-packages`。没有子目录就创建。**每对设备单独配对，分享时只发发布页的 ZIP。**
-4. 两端分别安装 ZIP 里的同一个 tgz。电脑在 DSH CLI 中使用 `dsh plugin --profile desktop add "file:安装包绝对路径"`；手机将包放进下载目录，在 DSH Go 本机终端执行 `dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-0.6.0.tgz"`。重启两个引擎。
+4. 两端分别安装同一个包。已经用上面的命令从 npm 装过就跳过这步；要装 ZIP 里的 tgz，电脑在 DSH CLI 中使用 `dsh plugin --profile desktop add "file:安装包绝对路径"`；手机将包放进下载目录，在 DSH Go 本机终端执行 `dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-0.7.3.tgz"`。重启两个引擎。
 5. 在电脑的 `DSH-Shared` 放一个新的文本文件，然后在手机工作区的同名目录查看。首次传输可等一至两个轮询周期。
 
 ### 兼容性与边界
 
-已在 DSH Desktop 0.2.2-rc.5 与 DSH Go 1.2.0（引擎 0.2.2-rc.1）上真机验证。测试中比对了 17 条会话的事件内容，16 条有原标题的会话在两端恢复了原标题；免费搜索插件也在手机上从 0.9.19 自动升级到了电脑的 0.9.73。这是一组实测环境，其他版本欢迎反馈。
+支持的 DSH 版本为 `>=0.2.2-rc.1 <0.3.0`。已在 DSH Desktop 0.2.2-rc.5 与 DSH Go 1.2.0（引擎 0.2.2-rc.1）上真机验证。测试中比对了 17 条会话的事件内容，16 条有原标题的会话在两端恢复了原标题；免费搜索插件也在手机上从 0.9.19 自动升级到了电脑的 0.9.73。这是一组实测环境，其他版本欢迎反馈。
 
 仅配对可信设备。聊天快照和共享文件保存在各自的本地磁盘，局域网传输使用 TLS。插件只有同时列入 `portablePlugins` 和 `autoInstallPlugins` 才会自动安装，重启引擎后加载。同步不传播删除；账号凭据和插件的个人设置保留在本机。引擎休眠时暂停。请避免同时用其他工具直接镜像 DSH 的 sessions 目录。
 
