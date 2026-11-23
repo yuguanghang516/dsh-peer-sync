@@ -30,7 +30,7 @@ Supported DSH range: `>=0.2.2-rc.1 <0.3.0`.
 
 ### Setup
 
-1. Download and unpack the release ZIP on Windows. Start the local DSH Go engine on Android at least once.
+1. Download and unpack the release ZIP on Windows; if a release only ships the tgz, `pair.py` and the READMEs from the repository are enough. Start the local DSH Go engine on Android at least once.
 2. In PowerShell in the extracted folder, run the commands below. Substitute the desktop engine’s actual data directory, your workspace and the phone’s Wi-Fi IPv4 address.
 
    ```powershell

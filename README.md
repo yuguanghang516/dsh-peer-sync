@@ -34,7 +34,7 @@ dsh plugin --profile desktop add dsh-peer-sync      # 桌面版
 
 ### 开始使用
 
-1. [下载发布页里的 ZIP](https://github.com/yuguanghang516/dsh-peer-sync/releases/latest)，解压到电脑。手机先在 DSH Go 中启动一次本机引擎。
+1. [下载发布页里的 ZIP](https://github.com/yuguanghang516/dsh-peer-sync/releases/latest)，解压到电脑；发布页只挂 tgz 时，直接取仓库里的 `pair.py` 和各 README 也一样能用。手机先在 DSH Go 中启动一次本机引擎。
 2. 在 Windows 的解压目录打开 PowerShell。把下面两个目录和手机 Wi‑Fi 地址换成自己的。Python 需要安装 `cryptography`：
 
    ```powershell
