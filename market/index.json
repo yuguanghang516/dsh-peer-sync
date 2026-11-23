@@ -1,0 +1,74 @@
+{
+  "format": 1,
+  "title": {
+    "zh": "YG 的 DSH 插件索引",
+    "en": "YG's DSH plugin index"
+  },
+  "description": {
+    "zh": "自建索引，收录自己维护的 DSH 插件。",
+    "en": "Self-hosted index for my own DSH plugins."
+  },
+  "metadata": {
+    "categories": {
+      "communication": {
+        "title": {
+          "zh": "通讯与同步",
+          "en": "Communication & sync"
+        }
+      },
+      "tools": {
+        "title": {
+          "zh": "工具",
+          "en": "Tools"
+        }
+      }
+    },
+    "sortKeys": {
+      "published": {
+        "title": {
+          "zh": "发布时间",
+          "en": "Published"
+        },
+        "order": "desc"
+      }
+    }
+  },
+  "plugins": [
+    {
+      "name": "dsh-peer-sync",
+      "title": {
+        "zh": "局域双端同步",
+        "en": "LAN peer sync"
+      },
+      "description": {
+        "zh": "同一 Wi-Fi 下让 Windows 的 DeepSeek Harness 和安卓 DSH Go 互换聊天记录、DSH-Shared 文件与已启用插件，断线重连自动补传。",
+        "en": "Sync chats, DSH-Shared files and enabled plugins between Windows DeepSeek Harness and Android DSH Go over the same Wi-Fi, catching up after reconnects."
+      },
+      "homepage": "https://github.com/yuguanghang516/dsh-peer-sync",
+      "metadata": {
+        "category": "communication",
+        "keywords": [
+          "sync",
+          "lan",
+          "dsh-go",
+          "peer",
+          "windows",
+          "android"
+        ]
+      },
+      "versions": [
+        {
+          "version": "0.7.3",
+          "publishTimestamp": 1795399638,
+          "source": {
+            "type": "npm",
+            "registry": "https://registry.npmjs.org/"
+          },
+          "engines": {
+            "dsh": ">=0.2.2-rc.1 <0.3.0-0"
+          }
+        }
+      ]
+    }
+  ]
+}
