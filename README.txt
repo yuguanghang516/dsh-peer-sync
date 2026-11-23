@@ -12,10 +12,10 @@ DSH Peer Sync 0.7.3（安卓 DSH Go / Windows DSH Desktop）
 2. 在 Windows 运行以下命令，把路径和手机 Wi-Fi IP 换成自己的：
 py pair.py --windows-home "D:\dsh\.dsh" --windows-workspace "D:\dsh\workspace" --phone-ip 192.168.1.20
 3. 将 private-pair/windows/peer-sync-settings.json 放到电脑实际 DSH_HOME，peer.crt 放到该目录的 peer-sync-packages 子目录。将 private-pair/android/peer-sync-settings.json 放进手机本机引擎的 /root/.dsh；peer.crt 和 peer.key 放进 /root/.dsh/peer-sync-packages（没有则创建）。手机侧可用 DSH Go 自带终端从 /sdcard/Download 复制。不要覆盖已有配对。配对文件包含私钥和密钥，只交给这对设备，切勿再分享。
-4. 两端都安装随附 tgz，在相应引擎终端执行 dsh plugin --profile desktop add "file:电脑上的安装包绝对路径"，手机用 dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-0.7.3.tgz"。Windows 桌面版如没有全局 dsh，可使用安装目录下 resources/runtime/cli/bin/dsh.cmd。重启两个引擎。
+4. 两端都安装随附 tgz，在相应引擎终端执行 dsh plugin --profile desktop add "file:电脑上的安装包绝对路径"，手机用 dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-<版本>.tgz"。Windows 桌面版如没有全局 dsh，可使用安装目录下 resources/runtime/cli/bin/dsh.cmd。重启两个引擎。
 5. 额外插件要在两端配置的 portablePlugins 中加入可信包名，需要自动安装的再写入 autoInstallPlugins。只支持可跨平台且声明受支持 files 清单的包。不会自动降级；安装失败看 peer-sync-cache/plugin-install-status-*.json。单机版插件、密钥、登录状态和个人配置不自动迁移。
 ### 两台安卓手机互传（v0.6.0）
-两台手机都启动 DSH Go 本机引擎、连同一个 Wi-Fi。运行 `python pair.py --two-phones --phone-ip 192.168.1.20 --out private-pair`，把示例地址换成手机 A 的 Wi-Fi 地址。此命令只需运行一次，可以在电脑或装有 Python 与 cryptography 的环境中运行。生成后同步不需要电脑。
+两台手机都启动 DSH Go 本机引擎、连同一个 Wi-Fi。运行 `py pair.py --two-phones --phone-ip 192.168.1.20 --out private-pair`，把示例地址换成手机 A 的 Wi-Fi 地址。此命令只需运行一次，可以在电脑或装有 Python 与 cryptography 的环境中运行。生成后同步不需要电脑。
 
 两台手机各安装同一份 tgz（web profile）。分别将 phone-a、phone-b 里的 peer-sync-settings.json 放到各自引擎的 /root/.dsh，证书和 A 的私钥放到各自 /root/.dsh/peer-sync-packages。A 监听，B 主动连接，两边都能发送和接收。重启后在 A 的 DSH-Shared 放一个小文件，在 B 核对，再反向测试。原标题、聊天续写和允许名单内插件使用同一套同步规则。每个引擎同一时间使用一套配对；从已有电脑配对切换前，备份两端原设置及证书目录。请勿公开或交叉混用配对密钥。
 

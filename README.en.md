@@ -26,7 +26,7 @@ Or install it from a plugin market:
 
 Restart the engine afterwards. **Syncing still needs one pairing step** (see Setup below); pairing files and private keys are never shipped with the package.
 
-Supported DSH range: `>=0.2.2-rc.1 <0.3.0`.
+Supported DSH range: `>=0.2.2-rc.1 <0.3.0-0`. It is declared twice, in `engines` and `peerDependencies`, so third-party version checks can read it.
 
 ### Setup
 
@@ -39,7 +39,7 @@ Supported DSH range: `>=0.2.2-rc.1 <0.3.0`.
    ```
 
 3. From the generated **windows** folder, copy `peer-sync-settings.json` to the desktop data directory and `peer.crt` to its `peer-sync-packages` subdirectory. From **android**, copy the settings to `/root/.dsh` inside the phone engine, and the certificate and private key to `/root/.dsh/peer-sync-packages`. Create the subdirectories if necessary. Generate a fresh pair for each user. Never distribute the generated files.
-4. Install the same package in both engines. Skip this if you already installed from npm above. Otherwise run `dsh plugin --profile desktop add "file:ABSOLUTE_PATH_TO_TGZ"` on the desktop, place the package in Downloads on the phone and run `dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-0.7.3.tgz"` in the local DSH Go terminal. Restart both engines. If Windows has no global dsh command, use the desktop install’s `resources/runtime/cli/bin/dsh.cmd`.
+4. Install the same package in both engines. Skip this if you already installed from npm above. Otherwise run `dsh plugin --profile desktop add "file:ABSOLUTE_PATH_TO_TGZ"` on the desktop, place the package in Downloads on the phone and run `dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-<version>.tgz"` in the local DSH Go terminal. Restart both engines. If Windows has no global dsh command, use the desktop install’s `resources/runtime/cli/bin/dsh.cmd`.
 5. Put a small text file in the desktop workspace’s `DSH-Shared` directory and look for it in the phone workspace after one or two polling cycles.
 
 ### What syncs
@@ -58,7 +58,7 @@ Author: yuguanghang516 · Repository: https://github.com/yuguanghang516/dsh-peer
 Checks the latest stable GitHub Release after startup and every 24 hours. A newer package is verified against the release asset SHA-256 and saved under peer-sync-updates in your DSH data directory. Install it when ready. From your profile directory run `node node_modules/dsh-peer-sync/update.js` to check manually; append `--download` to download. Set autoDownloadUpdates to false for checks only, or autoCheckUpdates to false for manual mode. Upgrade older versions manually once.
 
 ### Two Android phones (v0.6.0)
-Run both DSH Go local engines on the same Wi-Fi. Generate one fresh pair with `python pair.py --two-phones --phone-ip 192.168.1.20 --out private-pair` (use phone A's address). Install the tgz on both web profiles. Copy each device's settings from its own phone-a or phone-b folder to /root/.dsh; put certificates and A's private key in /root/.dsh/peer-sync-packages. Restart both engines. A listens and B connects; chats, titles, shared files and approved plugins flow both ways without a PC. One pair is active at a time; back up existing settings and certificates before switching.
+Run both DSH Go local engines on the same Wi-Fi. Generate one fresh pair with `py pair.py --two-phones --phone-ip 192.168.1.20 --out private-pair` (use phone A's address). Install the tgz on both web profiles. Copy each device's settings from its own phone-a or phone-b folder to /root/.dsh; put certificates and A's private key in /root/.dsh/peer-sync-packages. Restart both engines. A listens and B connects; chats, titles, shared files and approved plugins flow both ways without a PC. One pair is active at a time; back up existing settings and certificates before switching.
 
 Existing phone pairs can enable this in both pairing settings with `"syncAllPlugins": true` (JSON). Restart both engines after upgrading. Peer Sync itself is updated separately on each device. Plugin settings, accounts and keys stay local. The archive limit is 16 MiB. Dependencies may require internet access. Check plugin-pack-status and plugin-install-status in the exchange directory for individual failures.
 

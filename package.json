@@ -1,6 +1,6 @@
 {
   "name": "dsh-peer-sync",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "DSH LAN sync plugin: keep Windows DeepSeek Harness and Android DSH Go sessions, shared files and plugins in step over Wi-Fi.",
   "type": "module",
   "main": "index.js",
@@ -28,7 +28,16 @@
     "session-sync"
   ],
   "license": "MIT",
+  "peerDependencies": {
+    "@deepseek-ai/dsh": ">=0.2.2-rc.1 <0.3.0-0"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh": {
+      "optional": true
+    }
+  },
   "engines": {
+    "node": ">=20",
     "dsh": ">=0.2.2-rc.1 <0.3.0-0"
   },
   "dsh": {
