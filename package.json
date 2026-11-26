@@ -1,6 +1,6 @@
 {
   "name": "dsh-peer-sync",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "DSH LAN sync plugin: keep Windows DeepSeek Harness and Android DSH Go sessions, shared files and plugins in step over Wi-Fi.",
   "type": "module",
   "main": "index.js",
@@ -28,14 +28,6 @@
     "session-sync"
   ],
   "license": "MIT",
-  "peerDependencies": {
-    "@deepseek-ai/dsh": ">=0.2.2-rc.1 <0.3.0-0"
-  },
-  "peerDependenciesMeta": {
-    "@deepseek-ai/dsh": {
-      "optional": true
-    }
-  },
   "engines": {
     "node": ">=20",
     "dsh": ">=0.2.2-rc.1 <0.3.0-0"
@@ -45,6 +37,30 @@
       "patch": "cordis.patch.yml"
     }
   },
+  "dshGo": {
+    "v": 1,
+    "title": {
+      "zh": "局域双端同步",
+      "en": "LAN peer sync"
+    },
+    "icon": "refresh",
+    "contributes": {
+      "composer.strip": [
+        {
+          "id": "peer-sync-status",
+          "icon": "refresh"
+        }
+      ]
+    }
+  },
   "author": "yuguanghang516",
-  "repository": "https://github.com/yuguanghang516/dsh-peer-sync.git"
+  "repository": "https://github.com/yuguanghang516/dsh-peer-sync.git",
+  "peerDependencies": {
+    "@deepseek-ai/dsh": ">=0.2.2-rc.1 <0.3.0-0"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh": {
+      "optional": true
+    }
+  }
 }

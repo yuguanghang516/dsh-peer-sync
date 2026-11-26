@@ -12,6 +12,8 @@ import { isDeepStrictEqual } from 'node:util'
 export const inject = ['workspaceRegistry', 'sessionPersistence']
 const validId = /^session-[a-z0-9-]{1,100}$/i
 const peers = new Map([['windows','android'],['android','windows'],['phone-a','phone-b'],['phone-b','phone-a']])
+// dsh-go 状态条用的运行状态：配对、最近一次成功同步、最近一次错误
+const status = {paired:false,side:null,peer:null,lastOkAt:0,lastError:null}
 async function atomic(file, value) {
   const tmp = file + '.' + randomUUID() + '.tmp'
   try {
@@ -67,9 +69,26 @@ export async function transfer(ctx,workspace,cwd,snapshot) {
 }
 
 export function apply(ctx,cfg={}) {
+  ctx.inject?.(['dshGo'],(c)=>{
+    c.dshGo?.strip?.('peer-sync-status',(scope,emit,caps)=>{
+      const en=String(caps?.locale||'').startsWith('en')
+      const paint=()=>{
+        if(!status.paired)return emit({text:en?'Not paired yet':'未配对，先配对',tone:'warn'})
+        if(status.lastError)return emit({text:en?'Sync error':'同步出错，点开看',tone:'bad'})
+        if(!status.lastOkAt)return emit({text:en?'Waiting for sync':'等待首次同步',tone:'muted'})
+        const min=Math.round((Date.now()-status.lastOkAt)/60000)
+        const when=min<1?(en?'just now':'刚刚'):(en?`${min} min ago`:`${min} 分钟前`)
+        emit({text:en?`Synced ${when}`:`已同步 ${when}`,tone:'good'})
+      }
+      paint()
+      const timer=setInterval(paint,30000)
+      return ()=>clearInterval(timer)
+    })
+  })
   if(!cfg.device){const home=process.env.DSH_HOME||path.join(os.homedir(),'.dsh');try{cfg=JSON.parse(readFileSync(path.join(home,'peer-sync-settings.json'),'utf8'))}catch(e){ctx.logger.warn('Peer sync settings unavailable: '+e.code);return}}
   scheduleUpdates(ctx,cfg)
   const side=cfg.device, directory=cfg.exchange, root=cfg.workspace
+  if(peers.has(side)&&path.isAbsolute(directory||'')&&path.isAbsolute(root||'')){status.paired=true;status.side=side;status.peer=peers.get(side)}
   if(!peers.has(side)||!path.isAbsolute(directory||'')||!path.isAbsolute(root||'')){
     ctx.logger.warn('Configure device, exchange and workspace before starting sync')
     return
@@ -129,6 +148,7 @@ export function apply(ctx,cfg={}) {
       if(cfg.lan?.bind && !server)server=await serve(cfg.lan,mine,peer)
       if(cfg.lan?.host)await exchange(cfg.lan,mine,peer)
       await receiveAddons(cfg,peer);await fs.rm(path.join(directory,'last-error.json'),{force:true});
+      status.lastOkAt=Date.now();status.lastError=null
       await atomic(path.join(directory,'network-status.json'),{device:side,checked:new Date().toISOString(),role:cfg.lan?.bind?'listener':'client'});
       const files=await fs.readdir(peer).catch(e=>{if(e.code==='ENOENT')return [];throw e})
       for(const name of files){
@@ -155,7 +175,7 @@ export function apply(ctx,cfg={}) {
           await fs.mkdir(path.join(directory,'receipts'),{recursive:true});await atomic(path.join(directory,'receipts',name),{id:snap.header.id,events:snap.events.length})
         }catch(e){await atomic(path.join(directory,'import-error.json'),{name,message:e.message});ctx.logger.warn(name+': '+e.message)}
       }
-    }catch(e){await atomic(path.join(directory,'last-error.json'),{message:e.message}).catch(()=>{});ctx.logger.warn('Peer sync: '+e.message)}finally{running=false}
+    }catch(e){status.lastError=e.message;await atomic(path.join(directory,'last-error.json'),{message:e.message}).catch(()=>{});ctx.logger.warn('Peer sync: '+e.message)}finally{running=false}
   }
   ctx.effect(()=>{const timer=setInterval(tick,30000);void tick();return ()=>{stopped=true;clearInterval(timer);server?.close()}})
 }
