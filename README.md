@@ -8,7 +8,7 @@
 
 两端都从 GitHub Release 下载相同版本的 **dsh-peer-sync-`<版本>`.tgz**，保留原文件。npm 上现有的 0.7.5 是旧版，按包名安装会拿到旧版。
 
-- **Windows DSH**：用 DSH 的 CLI 安装。已有 `dsh` 命令时，运行 `dsh plugin --profile desktop add "file:C:/路径/dsh-peer-sync-<版本>.tgz"`。桌面客户端自带的 CLI 一般在安装目录下的 `resources/runtime/cli/bin/dsh.cmd`。
+- **Windows DSH**：首次使用先打开桌面版一次以初始化 profile，再完全退出 DSH（包括托盘），用 DSH 的 CLI 安装。已有 `dsh` 命令时，运行 `dsh plugin --profile desktop add "file:C:/路径/dsh-peer-sync-<版本>.tgz"`。桌面客户端自带的 CLI 一般在安装目录下的 `resources/runtime/cli/bin/dsh.cmd`。
 - **安卓 DSH Go**：把安装包放到手机的「下载」目录。在 **DSH Go 本机引擎的终端**运行 `dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-<版本>.tgz"`。
 
 命令中的 `<版本>` 换成下载文件的实际版本号。安装后重启各自的本机引擎，再在两端各打开一个 DSH 工作区。
