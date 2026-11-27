@@ -1,3 +1,5 @@
+import {ManualSession} from './manual.js'
+import {trashFor} from './trash.js'
 import {organizerFor} from './organizer.js'
 import {LinkPolicy} from './policy.js'
 import {links,linkKey,setupCenter} from './center.js'
@@ -5,7 +7,7 @@ import {startDesktopPanel} from './desktop-panel.js'
 import {collectAttachments,syncAttachments} from './attachments.js'
 import {scheduleUpdates} from './update.js'
 import {syncFiles,packAddons,receiveAddons} from './extras.js'
-import {serve,exchange} from './lan.js'
+import {serve,exchange,manualRPC} from './lan.js'
 import * as fs from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
@@ -87,11 +89,8 @@ export function apply(ctx,cfg={}) {
       const en=String(caps?.locale||'').startsWith('en')
       const paint=()=>{
         if(!status.paired)return emit({text:en?'Not paired yet':'未配对，先配对',tone:'warn'})
-        if(status.lastError)return emit({text:en?'Sync error':'同步出错，点开看',tone:'bad'})
-        if(!status.lastOkAt)return emit({text:en?'Waiting for sync':'等待首次同步',tone:'muted'})
-        const min=Math.round((Date.now()-status.lastOkAt)/60000)
-        const when=min<1?(en?'just now':'刚刚'):(en?`${min} min ago`:`${min} 分钟前`)
-        emit({text:en?`Synced ${when}`:`已同步 ${when}`,tone:'good'})
+        const online=[...links.values()].some(l=>Date.now()-l.contact<90000)
+        emit({text:online?(en?'Manual sync · Online':'手动同步 · 设备在线'):(en?'Manual sync · Open center':'手动同步 · 打开中心'),tone:online?'good':'muted'})
       }
       paint()
       const timer=setInterval(paint,30000)
@@ -122,23 +121,33 @@ function startLink(ctx,cfg){
     if(receipt)agent.model.select({...route,provider:defaults.provider})
   })
   const policy=new LinkPolicy(cfg,peers.get(side)),ready=policy.load()
-  const link={cfg,policy,other:peers.get(side),tick,contact:0,error:null}
-  cfg.lan={...cfg.lan,policy,onContact:()=>{link.contact=Date.now()}}
+  const link={cfg,policy,other:peers.get(side),contact:0,error:null}
+  const trash=trashFor(process.env.DSH_HOME||path.join(os.homedir(),'.dsh'))
+  policy.trash=trash
+  link.describe=id=>trash.describe(ctx,cfg,id)
+  link.erase=job=>trash.erase(ctx,cfg,job,links)
+  const manual=new ManualSession(link,{prepare:()=>schedule('export'),apply:names=>schedule('import',new Set(names)),erase:link.erase})
+  link.request=(kind,args)=>{manual.request(kind,args);void pulse()}
+  link.tick=()=>schedule('catalog').catch(e=>{link.error=e.message})
+  cfg.lan={...cfg.lan,policy,manual,onContact:address=>{link.contact=Date.now();link.lastAddress=address}}
   links.set(linkKey(cfg),link)
   const organizer=organizerFor(process.env.DSH_HOME||path.join(os.homedir(),'.dsh'))
   ctx.effect(()=>organizer.register(link))
   const seen=new Map()
   const sessionRefs=new Map()
   const attachmentRoot=path.join(cfg.profileDirectory ? path.dirname(path.dirname(cfg.profileDirectory)) : (process.env.DSH_HOME||path.join(os.homedir(),'.dsh')),'attachments','v1')
-  let running=false,stopped=false,server
-  async function tick(){
-    if(running||stopped)return
-    running=true
+  let stopped=false,server,chain=Promise.resolve(),heartbeat=false,lastCatalog=0
+  function schedule(stage,offered){
+    const next=chain.then(()=>tick(stage,offered))
+    chain=next.catch(()=>{});return next
+  }
+  async function tick(stage,offered){
+    if(stopped)throw Error('Plugin stopped')
     try {
-      await ready
+      await Promise.all([ready,trash.ready])
       const cwd=await fs.realpath(root)
       await fs.mkdir(mine,{recursive:true})
-      if(cfg.profileDirectory){
+      if(stage==='export'&&cfg.profileDirectory){
         const manifest=JSON.parse(await fs.readFile(path.join(cfg.profileDirectory,'package.json'),'utf8'))
         const bundles=manifest.dsh?.profile?.bundles||[]
         const plugins=[]
@@ -158,12 +167,13 @@ function startLink(ctx,cfg){
       for(const row of rows){
         if(stopped)return
         const {id}=row.header
-        if(!validId.test(id)||!row.header.cwd||!([root,...(cfg.previousWorkspacePaths||[])].includes(row.header.cwd)||path.resolve(row.header.cwd)===cwd))continue
+        if(trash.entries.has(id)||!validId.test(id)||!row.header.cwd||!([root,...(cfg.previousWorkspacePaths||[])].includes(row.header.cwd)||path.resolve(row.header.cwd)===cwd))continue
         present.add(id)
         try{
           const file=path.join(mine,id+'.json'), revision=JSON.stringify(row.revision)
-          const selected=policy.selected(id)
+          const selected=stage==='export'&&policy.selected(id)
           const cacheKey=(selected?'export:':'catalog:')+revision
+          if(!selected&&policy.catalog.has(id)&&seen.get(id)==='export:'+revision)continue
           if(seen.get(id)===cacheKey && (!selected || await fs.stat(file).catch(()=>null)))continue
           const h=await ctx.sessionPersistence.open(id,'read')
           try {
@@ -181,20 +191,22 @@ function startLink(ctx,cfg){
         }catch(e){await atomic(path.join(directory,'export-error.json'),{id,message:e.message});ctx.logger.warn(id+': '+e.message)}
       }
       for(const id of policy.catalog.keys())if(!present.has(id)){policy.catalog.delete(id);policy.hashes.delete(id);seen.delete(id);sessionRefs.delete(id)}
-      const refs=new Map()
-      for(const [id,entries] of sessionRefs)if(policy.selected(id))for(const [key,hash] of entries)refs.set(key,hash)
-      const missing=await syncAttachments(attachmentRoot,mine,peer,refs)
-      await atomic(path.join(directory,'attachment-status.json'),{missing})
-      await syncFiles(cfg,mine,peer);await packAddons(cfg,mine);
-      if(cfg.lan?.bind && !server)server=await serve(cfg.lan,mine,peer)
-      if(cfg.lan?.host)await exchange(cfg.lan,mine,peer)
-      await receiveAddons(cfg,peer);await fs.rm(path.join(directory,'last-error.json'),{force:true});
-      link.error=null;status.lastOkAt=Date.now();status.lastError=null
-      await atomic(path.join(directory,'network-status.json'),{device:side,checked:new Date().toISOString(),role:cfg.lan?.bind?'listener':'client'});
+      if(stage==='catalog')return
+      if(stage==='export'){
+        const refs=new Map()
+        for(const [id,entries] of sessionRefs)if(policy.selected(id))for(const [key,hash] of entries)refs.set(key,hash)
+        const missing=await syncAttachments(attachmentRoot,mine,peer,refs)
+        await atomic(path.join(directory,'attachment-status.json'),{missing})
+        await syncFiles(cfg,mine,peer,'export');await packAddons(cfg,mine)
+        return
+      }
+      await syncFiles(cfg,mine,peer,'import',offered)
+      await receiveAddons(cfg,peer,offered)
+      const failures=[]
       const files=await fs.readdir(peer).catch(e=>{if(e.code==='ENOENT')return [];throw e})
       for(const name of files){
         if(stopped)return
-        if(!policy.allowed(name,'receive')||!name.endsWith('.json')||!validId.test(name.slice(0,-5)))continue
+        if(!offered.has(name)||!policy.allowed(name,'receive')||!name.endsWith('.json')||!validId.test(name.slice(0,-5)))continue
         try{
           const snap=JSON.parse(await fs.readFile(path.join(peer,name),'utf8'))
           if(name!==snap.header.id+'.json')throw Error('Session ID mismatch')
@@ -212,13 +224,27 @@ function startLink(ctx,cfg){
             if(idx<0)throw e
             const hex=createHash('sha256').update(JSON.stringify([snap.header.id,idx,snap.events[idx]])).digest('hex')
             const branch='session-'+[hex.slice(0,8),hex.slice(8,12),'4'+hex.slice(13,16),'8'+hex.slice(17,20),hex.slice(20,32)].join('-')
+            if(trash.entries.has(branch))continue
             await transfer(ctx,ws,cwd,{...snap,header:{...snap.header,id:branch}})
             await policy.conflict(snap.header.id,branch)
           }
           await fs.mkdir(path.join(directory,'receipts'),{recursive:true});await atomic(path.join(directory,'receipts',name),{id:snap.header.id,events:snap.events.length})
-        }catch(e){await atomic(path.join(directory,'import-error.json'),{name,message:e.message});ctx.logger.warn(name+': '+e.message)}
+        }catch(e){failures.push(name);await atomic(path.join(directory,'import-error.json'),{name,message:e.message});ctx.logger.warn(name+': '+e.message)}
       }
-    }catch(e){link.error=e.message;status.lastError=e.message;await atomic(path.join(directory,'last-error.json'),{message:e.message}).catch(()=>{});ctx.logger.warn('Peer sync: '+e.message)}finally{running=false}
+      if(failures.length)throw Error('有 '+failures.length+' 段聊天导入失败 / Some chats could not be imported')
+    }catch(e){link.error=e.message;throw e}
   }
-  ctx.effect(()=>{const timer=setInterval(tick,30000);void tick();return ()=>{stopped=true;if(links.get(linkKey(cfg))===link)links.delete(linkKey(cfg));clearInterval(timer);server?.close()}})
+  async function pulse(){
+    if(heartbeat||stopped)return
+    heartbeat=true
+    try{
+      await Promise.all([ready,trash.ready])
+      await fs.mkdir(mine,{recursive:true});await fs.mkdir(peer,{recursive:true})
+      if(cfg.lan.bind&&!server)server=await serve(cfg.lan,mine,peer)
+      if(Date.now()-lastCatalog>60000){lastCatalog=Date.now();await schedule('catalog');await trash.sweep()}
+      if(cfg.lan.host)await manual.poll(msg=>manualRPC(cfg.lan,msg),(token,send,receive)=>exchange({...cfg.lan,token,send,receive},mine,peer))
+      link.error=null
+    }catch(e){link.error=e.message}finally{heartbeat=false}
+  }
+  ctx.effect(()=>{const timer=setInterval(pulse,8000);void pulse();return ()=>{stopped=true;if(links.get(linkKey(cfg))===link)links.delete(linkKey(cfg));clearInterval(timer);server?.close()}})
 }

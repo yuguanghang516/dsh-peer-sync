@@ -16,6 +16,7 @@ export function startDesktopPanel(ctx,center){
      let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>4096)throw Error('Request too large')}
      const {action,args}=JSON.parse(raw);await center.action(action,args||{})
     }else if(req.method!=='GET'){res.writeHead(405).end();return}
+    if(req.method==='GET')await center.scan()
     res.end(JSON.stringify(center.state()))
    }catch(e){res.writeHead(400).end(JSON.stringify({error:e.message}))}
   })

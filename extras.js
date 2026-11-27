@@ -27,12 +27,12 @@ async function* walk(base,rel=''){
     else if(ent.isFile()&&formats.test(name))yield name
   }
 }
-export async function syncFiles(cfg,mine,peer){
+export async function syncFiles(cfg,mine,peer,stage='both',offered){
   if(!cfg.sharedDirectory)return
   await fs.mkdir(cfg.sharedDirectory,{recursive:true})
   const base=await fs.realpath(cfg.sharedDirectory)
   const stateFile=path.join(cfg.exchange,'file-state.json'),state=JSON.parse((await get(stateFile))||'{}')
-  for await(const name of walk(base)){
+  if(stage!=='import')for await(const name of walk(base)){
     const file=await safePath(base,name)
     if((await fs.stat(file)).size>maxBytes)continue
     const data=await fs.readFile(file),hash=sha(data),id=sha(name),out=path.join(mine,'data-'+id+'.json')
@@ -41,7 +41,8 @@ export async function syncFiles(cfg,mine,peer){
       state[id]={...state[id],sent:hash}
     }
   }
-  for(const name of await fs.readdir(peer).catch(e=>{if(e.code==='ENOENT')return [];throw e})){
+  if(stage!=='export')for(const name of await fs.readdir(peer).catch(e=>{if(e.code==='ENOENT')return [];throw e})){
+    if(offered&&!offered.has(name))continue
     if(!/^data-[a-f0-9]{64}\.json$/.test(name))continue
     const v=JSON.parse(await fs.readFile(path.join(peer,name))),id=sha(v.name)
     if(name!=='data-'+id+'.json'||!formats.test(v.name))throw Error('Shared filename mismatch')
@@ -144,11 +145,12 @@ async function enableBundled(cfg,inventory){
   await write(file,JSON.stringify(manifest,null,2)+'\n')
 }
 
-export async function receiveAddons(cfg,peer){
-  const inventory=cfg.syncAllPlugins ? JSON.parse(await get(path.join(peer,'plugins.json'))||'[]') : []
+export async function receiveAddons(cfg,peer,offered){
+  const inventory=cfg.syncAllPlugins&&(!offered||offered.has('plugins.json')) ? JSON.parse(await get(path.join(peer,'plugins.json'))||'[]') : []
   const names=cfg.syncAllPlugins ? inventory.map(p=>p.name) : cfg.portablePlugins||[]
   for(const pkg of names.filter(sharedPlugin)){
     try{
+      if(offered&&!offered.has('addon-'+sha(pkg)+'.json'))continue
       const raw=await get(path.join(peer,'addon-'+sha(pkg)+'.json'))
       if(!raw)continue
       const v=JSON.parse(raw),b=Buffer.from(v.body,'base64')

@@ -27,6 +27,7 @@ export class Pairing{
   await fs.mkdir(this.dir,{recursive:true,mode:0o700})
   const f=path.join(this.dir,'device.json')
   try{this.device=JSON.parse(await fs.readFile(f))}catch(e){if(e.code!=='ENOENT')throw e;this.device={id:randomUUID(),name:deviceName(process.env.ANDROID_ROOT?'Android · '+os.hostname():os.hostname())};await writeJSON(f,this.device)}
+  this.device.platform=process.platform==='win32'?'Windows DSH':'DSH Go'
   for(const n of await fs.readdir(this.dir))if(/^[a-f0-9-]{36}$/.test(n)){
     try{const c=JSON.parse(await fs.readFile(path.join(this.dir,n,'config.json')));this.start(c)}catch(e){this.error=e.message}
   }
@@ -38,11 +39,11 @@ export class Pairing{
   })
   this.udp.bind(discoveryPort,'0.0.0.0')
  }
- async scan(){
+ async scan(extra=[]){
   const sock=dgram.createSocket('udp4');const found=new Map()
   try{await new Promise((ok,no)=>{sock.once('error',no);sock.bind(0,ok)});sock.setBroadcast(true)
-    sock.on('message',(b,src)=>{if(b.length>550||!lan(src.address))return;try{const x=JSON.parse(b);if(x.protocol==='dsh-peer-1'&&/^[a-f0-9-]{36}$/.test(x.id)&&x.id!==this.device.id&&Number.isInteger(x.port)&&x.port>=0&&x.port<65536)found.set(x.id,{name:deviceName(x.name),host:src.address,port:x.port})}catch{}})
-    const targets=new Set(['255.255.255.255',...interfaces().map(x=>x.address.split('.').map((n,i)=>Number(n)|(255-Number(x.netmask.split('.')[i]))).join('.'))])
+    sock.on('message',(b,src)=>{if(b.length>550||!lan(src.address))return;try{const x=JSON.parse(b);if(x.protocol==='dsh-peer-1'&&/^[a-f0-9-]{36}$/.test(x.id)&&x.id!==this.device.id&&Number.isInteger(x.port)&&x.port>=0&&x.port<65536)found.set(x.id,{id:x.id,name:deviceName(x.name),platform:['Windows DSH','DSH Go'].includes(x.platform)?x.platform:'DSH',host:src.address,port:x.port,seen:Date.now()})}catch{}})
+    const targets=new Set(['255.255.255.255',...extra.filter(lan),...interfaces().map(x=>x.address.split('.').map((n,i)=>Number(n)|(255-Number(x.netmask.split('.')[i]))).join('.'))])
     for(const ip of targets)sock.send('DSH-PEER-FIND-1',discoveryPort,ip)
     await new Promise(r=>setTimeout(r,850));this.near=found
   }finally{sock.close()}

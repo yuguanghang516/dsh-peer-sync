@@ -1,15 +1,41 @@
-<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DSH 同步中心</title>
-<style>*{box-sizing:border-box}body{font:16px system-ui,sans-serif;background:#f4f6f5;color:#192f2b;margin:0}main{max-width:840px;margin:auto;padding:24px}section{background:white;padding:22px;margin:16px 0;border:1px solid #d5dedb;border-radius:12px}h1{font-size:28px}h2{font-size:19px;margin:0 0 14px}button,input{font:inherit;padding:9px;border:1px solid #bacbc6;border-radius:7px;background:white;margin:3px}button{cursor:pointer}button:hover,button:focus{background:#e2f3eb}small,p{color:#475f56}output{display:block;overflow-wrap:anywhere}.rows button{display:block;text-align:left;width:100%}</style>
-<main><h1>DSH 同步中心</h1><section><h2>已配对设备</h2><div class="rows" id="devices"></div><p id="summary"></p><p>双向合并。当双方分别续写时，聊天清单标记主设备的分支并保留双方记录。</p><div id="roles"></div><output id="status"></output></section>
-<section><h2>选择此配对要同步的聊天</h2><div id="modes"></div><input id="query" placeholder="搜索聊天标题"><button id="search">搜索</button><p id="scope"></p><div class="rows" id="chats"></div><div id="pages"></div></section>
-<section><h2>自动整理聊天记录</h2><p id="organizer"></p><div id="organizeActions"></div></section>
-<section><h2>配对设备</h2><div id="inviteButtons"></div><p id="invitation"></p><div class="rows" id="nearby"></div><input id="address" placeholder="对方地址:端口"><input id="code" placeholder="20 位邀请码" autocomplete="off" maxlength="20"><button id="join">确认配对</button></section></main>
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DSH 同步中心</title>
+<style>
+:root{color-scheme:light dark;--bg:#f4f6f4;--paper:#fff;--ink:#192d26;--muted:#52675d;--line:#cfd9d2;--action:#155945}
+@media(prefers-color-scheme:dark){:root{--bg:#141b18;--paper:#202a25;--ink:#eef7ee;--muted:#aec0b5;--line:#43534a;--action:#185c47}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Segoe UI",system-ui,sans-serif}
+main{max-width:650px;margin:clamp(12px,6vh,56px) auto;padding:0 16px}header{display:flex;align-items:center;gap:12px}h1{font-size:27px;letter-spacing:-.03em}h2{font-size:17px}
+.card{border:1px solid var(--line);border-radius:14px;background:var(--paper);padding:20px;margin:12px 0}
+button,input{font:inherit;color:inherit}button{border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:9px 14px;cursor:pointer;min-height:44px}
+button:hover{border-color:var(--muted)}button:focus-visible,input:focus-visible{outline:3px solid #57997d;outline-offset:2px}
+button.primary{background:var(--action);color:#fff;border-color:var(--action);font-weight:650;flex:1}
+.rows>*{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:12px 0;text-align:start;width:100%;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;overflow-wrap:anywhere}
+.rows>*:last-child{border-bottom:0}.rows small,small,p,output{color:var(--muted)}.rows small{text-align:end}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.bar h2{flex:1;margin:0}input{background:var(--paper);padding:9px;border:1px solid var(--line);border-radius:6px;min-width:0;max-width:100%}label{display:grid;gap:4px;margin:10px 0}output{display:block;white-space:pre-wrap;overflow-wrap:anywhere}section[hidden],button[hidden]{display:none}
+</style>
+<main><header><button hidden id="back">‹ 返回</button><h1 id="heading">同步中心</h1></header>
+<section id="home">
+<div class="card"><div class="bar"><h2 id="wifiStatus">正在查找同网设备…</h2><button data-action="scan">刷新</button></div><div class="rows" id="allDevices"></div></div>
+<div class="card"><h2 id="target"></h2><p id="selectionText"></p><div class="bar"><button class="primary" data-action="sync">同步一次</button><button data-go="chats">选择聊天</button></div></div>
+<div class="bar"><button data-go="settings">设备设置</button><button data-go="pair">配对新设备</button></div></section>
+<section id="settings" hidden class="card"><h2 id="settingsTarget"></h2><div id="controls" class="rows"></div></section>
+<section id="roles" hidden class="card"><p>选择谁可以发起这对设备之间的传输。</p><div class="bar"><button data-action="both">双向手动同步</button><button data-action="local">本机为主</button><button data-action="peer">对端为主</button></div></section>
+<section id="chats" hidden class="card"><p id="scope"></p><div class="bar"><button data-action="all">全部聊天</button><button data-action="some">只同步勾选项</button></div></section>
+<section id="remove" hidden class="card"><p id="deleteInfo"></p><div class="rows" id="deleteActions"></div></section>
+<section id="library" hidden class="card"><form id="searchForm" class="bar"><input id="query" aria-label="搜索聊天标题" placeholder="搜索聊天标题"><button>搜索</button></form><div class="rows" id="chatRows"></div><div class="bar"><button data-action="prev">上一页</button><button data-action="next">下一页</button></div></section>
+<section id="pair" hidden class="card"><div class="bar"><button data-action="invite">创建邀请</button><button data-action="scan">查找附近设备</button></div><p id="invitation"></p><div class="rows" id="nearby"></div><form id="pairForm"><label>对方地址和端口<input id="address"></label><label>20 位邀请码<input id="code" maxlength="20" autocomplete="off"></label><button class="primary">确认配对</button></form></section>
+<output id="status" role="status" aria-live="polite"></output></main>
 <script>
-const el=id=>document.getElementById(id);let current='',busy=false;
-function button(parent,label,fn){const b=document.createElement('button');b.textContent=label;b.onclick=fn;el(parent).append(b)}
-function render(s){current=s.key;for(const k of ['devices','chats','nearby']){el(k).replaceChildren();for(const row of s[k])button(k,row.title+' · '+row.subtitle,()=>row.action&&run(row.action.id,row.action.args))}
-for(const k of ['summary','scope','invitation','organizer'])el(k).textContent=s[k];el('status').textContent=s.last}
-async function run(action,args={}){if(busy)return;busy=true;try{const r=await fetch('/panel',action?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,args:{key:current,...args}})}:{});const s=await r.json();if(!r.ok)throw Error(s.error||r.status);render(s);if(action==='near')el('address').value=args.address;if(action==='join')el('code').value=''}catch(e){el('status').textContent=e.message}finally{busy=false}}
-for(const [id,items] of Object.entries({organizeActions:[['开启自动整理','organizeOn'],['关闭自动整理','organizeOff']],roles:[['双向','both'],['本机为主','local'],['对端为主','peer'],['立即同步','sync']],modes:[['全部聊天','all'],['仅选中','some']],pages:[['上一页','prev'],['下一页','next']],inviteButtons:[['创建五分钟邀请','invite'],['查找附近设备','scan']]}))for(const [label,act] of items)button(id,label,()=>run(act));
-el('search').onclick=()=>run('search',{query:el('query').value});el('join').onclick=()=>run('join',{address:el('address').value,code:el('code').value});run();setInterval(()=>{if(!document.hidden)run()},10000)
+const by=id=>document.getElementById(id);
+const titles={home:'同步中心',settings:'设备设置',roles:'传输方向',chats:'选择聊天',remove:'删除聊天',pair:'配对新设备'};
+let page='home',state=null,busy=false;
+function navigate(next){page=next;for(const id of Object.keys(titles))by(id).hidden=id!==page;by('library').hidden=!['chats','remove'].includes(page);by('back').hidden=page==='home';by('heading').textContent=titles[page];if(state)render(state)}
+function rows(id,items){const parent=by(id);parent.replaceChildren();for(const row of items||[]){const item=document.createElement(row.action?'button':'div'),name=document.createElement('span'),sub=document.createElement('small');name.textContent=row.title;sub.textContent=row.subtitle;item.append(name,sub);if(row.action)item.onclick=()=>act(row.action.id,row.action.args);parent.append(item)}}
+function render(s){state=s;for(const id of ['wifiStatus','target','selectionText','scope','invitation','deleteInfo'])by(id).textContent=s[id];by('settingsTarget').textContent=s.target;by('status').textContent=s.last;for(const id of ['allDevices','controls','nearby','deleteActions'])rows(id,s[id]);rows('chatRows',page==='remove'?s.deleteChats:s.chats)}
+async function run(action,args={}){if(busy)return;busy=true;try{const r=await fetch('/panel',action?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,args:{key:state?.key,...args}})}:{});const v=await r.json();if(!r.ok)throw Error(v.error||r.status);render(v);if(action==='join')by('code').value='';return true}catch(e){by('status').textContent=e.message;return false}finally{busy=false}}
+async function act(action,args={}){if(action==='openRoles')return navigate('roles');if(action==='openDelete'){if(await run('deleteMode'))navigate('remove');return}if(action==='pairFromHome'){by('address').value=args.address||'';return navigate('pair')}if(action==='near')by('address').value=args.address;const ok=await run(action,args);if(ok&&['local','peer','both'].includes(action))navigate('settings')}
+document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>act(b.dataset.action));document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>navigate(b.dataset.go));
+by('back').onclick=()=>navigate(['roles','remove'].includes(page)?'settings':'home');by('pairForm').onsubmit=e=>{e.preventDefault();run('join',{address:by('address').value,code:by('code').value})};by('searchForm').onsubmit=e=>{e.preventDefault();run('search',{query:by('query').value})};
+run();setInterval(()=>{if(!document.hidden)run()},12000);
 </script></html>

@@ -1,5 +1,13 @@
 # DSH Peer Sync
 
+## Manual sync and nearby devices (0.9)
+
+Open Sync center to see DSH and DSH Go peers on the local network. Discovery and authenticated presence checks carry device information. Both engines need this version for manual transfers.
+
+Select a peer. In Two-way mode, press **Sync once** for one exchange. For one-way delivery open **Device settings → Direction** and choose **This device primary**, enable sending for the selected peer, choose chats, then press **Sync once**. Turning on sending does not start a transfer. Each receiver has its own switch.
+
+To delete a chat, open **Device settings → Delete a chat**, pick the title and review the destination. You can remove it on the primary itself or on the selected receiver. For remote deletion the receiver must enable **Allow primary deletion**. Pinned, busy and diverged histories are protected. Deleted files are held in the local peer-sync-trash directory for seven days, after which the plugin expires the backup when running. A small deletion record prevents cached copies from returning.
+
 **Automatic chat organization (0.8.3)** is off by default. Turn it on in the sync center for each device. Exact synced copies within the same workspace are archived after full-history and metadata verification. Pinned, active and divergent conversations are preserved. Turn the organizer off before manually restoring a copy you want to keep visible.
 
 [![npm](https://img.shields.io/npm/v/dsh-peer-sync?label=npm&color=cb3837)](https://www.npmjs.com/package/dsh-peer-sync)
@@ -9,7 +17,7 @@
 
 [简体中文](README.md) · **English** · [npm](https://www.npmjs.com/package/dsh-peer-sync) · [Download the latest release](https://github.com/yuguanghang516/dsh-peer-sync/releases/latest)
 
-Start a conversation in DeepSeek Harness on Windows and continue it under the same title in DSH Go on Android. Both devices run their own local engines. While they share a LAN, the plugin exchanges conversation history, selected files and portable plugins roughly every 30 seconds. No cloud storage, Syncthing or USB connection is required.
+Start a conversation in DeepSeek Harness on Windows and continue it under the same title in DSH Go on Android. Both devices run their own local engines. While they share a LAN, the plugin exchanges conversation history, selected files and portable plugins when you press Sync now. No cloud storage, Syncthing or USB connection is required.
 
 ### Install
 
@@ -72,6 +80,6 @@ Open **LAN peer sync** from a DSH Go chat or **Sync center** from Features. On W
 1. Connect both devices to the same Wi-Fi or hotspot. Choose **Pair devices → Create invite** on one device. On the other, choose **Find nearby**, select the inviter and enter the 20-character code. You can enter the displayed IP and port manually. Invitations expire after five minutes and the inviter needs OpenSSL.
 2. Select a peer, then choose **Two-way**, **This device primary** or **Peer primary**. Both sides can continue a chat. If they edit independently, both versions survive and the preferred branch is marked in the plugin chat list.
 3. Open **Choose chats → Selected only** and tap individual local chat titles. A chat present only on the other device can be selected there. Updated peers share the selection. New pairs start with no chats selected. Existing pairs keep syncing all chats until changed. Deselecting keeps copies already received.
-4. Both engines check about every 30 seconds while running. **Sync now** requests a check. Chat attachments follow selected chats; shared files and plugins use their own existing settings. Resume the mobile engine after Android suspends it.
+4. Both engines must be running. **Sync once** starts a manual transfer. Chat attachments follow selected chats; shared files and plugins use their own existing settings. Resume the mobile engine after Android suspends it.
 
 
