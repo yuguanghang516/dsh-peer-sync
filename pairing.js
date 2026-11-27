@@ -48,10 +48,10 @@ export class Pairing{
     await new Promise(r=>setTimeout(r,850));this.near=found
   }finally{sock.close()}
  }
- async config(id,role,remote,port,secret,cert,priv,host){
+ async config(defaults,id,role,remote,port,secret,cert,priv,host){
   const base=path.join(this.dir,id);await fs.mkdir(base,{recursive:true,mode:0o700})
   const certFile=path.join(base,'peer.crt');await fs.writeFile(certFile,cert,{mode:0o600})
-  const c={...this.defaults(),device:role,remoteName:deviceName(remote),visualPair:true,exchange:path.join(base,'exchange'),autoCheckUpdates:false,lan:{key:secret,port,certFile}}
+  const c={...defaults,device:role,remoteName:deviceName(remote),visualPair:true,exchange:path.join(base,'exchange'),autoCheckUpdates:false,lan:{key:secret,port,certFile}}
   if(priv){c.lan.bind='0.0.0.0';c.lan.privateKeyFile=path.join(base,'peer.key');await fs.writeFile(c.lan.privateKeyFile,priv,{mode:0o600})}else c.lan.host=host
   await writeJSON(path.join(base,'config.json'),c);this.start(c);return c
  }
@@ -59,6 +59,7 @@ export class Pairing{
  async makeOffer(){
   if(this.offer&&!this.offer.used)return this.offer
   this.endOffer()
+  const defaults=await this.defaults()
   const stage=await fs.mkdtemp(path.join(this.dir,'invite-')),code=randomBytes(10).toString('hex'),id=randomUUID()
   let cert,priv
   let openssl='openssl'
@@ -66,14 +67,17 @@ export class Pairing{
    const candidates=[path.join(os.homedir(),'scoop/apps/git/current/usr/bin/openssl.exe'),path.join(process.env.ProgramFiles||'C:/Program Files','Git/usr/bin/openssl.exe')]
    for(const f of candidates)if(await fs.stat(f).catch(()=>null)){openssl=f;break}
   }
-  try{await exec(openssl,['req','-x509','-newkey','rsa:2048','-nodes','-days','1825','-subj','/CN=dsh-peer.local','-addext','subjectAltName=DNS:dsh-peer.local','-keyout','key','-out','cert'],{cwd:stage,timeout:20000,windowsHide:true});cert=await fs.readFile(path.join(stage,'cert'),'utf8');priv=await fs.readFile(path.join(stage,'key'),'utf8')}finally{await fs.rm(stage,{recursive:true,force:true})}
+  try{await exec(openssl,['req','-x509','-newkey','rsa:2048','-nodes','-days','1825','-subj','/CN=dsh-peer.local','-addext','subjectAltName=DNS:dsh-peer.local','-keyout','key','-out','cert'],{cwd:stage,timeout:20000,windowsHide:true});cert=await fs.readFile(path.join(stage,'cert'),'utf8');priv=await fs.readFile(path.join(stage,'key'),'utf8')}catch(e){
+   if(e.code==='ENOENT')throw Error('当前设备缺少 OpenSSL。可在安卓 DSH Go 上创建邀请 / OpenSSL is required on the inviting device')
+   throw Error('无法生成配对证书 / Could not generate a pairing certificate',{cause:e})
+  }finally{await fs.rm(stage,{recursive:true,force:true})}
   const o={code,used:false},srv=https.createServer({cert,key:priv},async(req,res)=>{
    try{if(!lan(req.socket.remoteAddress||''))throw Error()
     if(req.url==='/hello'&&req.method==='GET'){res.end(JSON.stringify({cert,proof:mac(code,cert)}));return}
     if(req.url!=='/join'||req.method!=='POST')throw Error()
     const x=await body(req)
     if(!equal(code,x.code)||!(/^[a-f0-9-]{36}$/.test(x.id))||x.id===this.device.id)throw Error()
-    if(!o.used){o.used=x.id;o.result=(async()=>{const test=net.createServer(),port=await listen(test);await new Promise(r=>test.close(r));const secret=randomBytes(32).toString('hex');await this.config(id,'phone-a',x.name,port,secret,cert,priv);return {id,port,secret,name:this.device.name}})()}
+    if(!o.used){o.used=x.id;o.result=(async()=>{const test=net.createServer(),port=await listen(test);await new Promise(r=>test.close(r));const secret=randomBytes(32).toString('hex');await this.config(defaults,id,'phone-a',x.name,port,secret,cert,priv);return {id,port,secret,name:this.device.name}})()}
     if(o.used!==x.id)throw Error()
     res.end(JSON.stringify(await o.result))
    }catch{res.writeHead(403).end()}
@@ -82,10 +86,11 @@ export class Pairing{
  async join(address,code){
   const [host,p]=String(address).trim().split(':'),port=Number(p);code=String(code).trim().toLowerCase()
   if(!lan(host)||!Number.isInteger(port)||port<1||port>65535||!/^[a-f0-9]{20}$/.test(code))throw Error('请填写局域网地址:端口和 20 位邀请码 / Invalid address or code')
+  const defaults=await this.defaults()
   const h=await get(host,port,'/hello');if(typeof h.cert!=='string'||!equal(h.proof,mac(code,h.cert)))throw Error('邀请码不匹配 / Invitation mismatch')
   const r=await get(host,port,'/join',h.cert,{...this.device,code})
   if(!/^[a-f0-9-]{36}$/.test(r.id)||!Number.isInteger(r.port)||r.port<1||r.port>65535||!/^[a-f0-9]{64}$/.test(r.secret))throw Error('Invalid pairing response')
-  await this.config(r.id,'phone-b',r.name,r.port,r.secret,h.cert,null,host)
+  await this.config(defaults,r.id,'phone-b',r.name,r.port,r.secret,h.cert,null,host)
  }
  endOffer(){clearTimeout(this.timer);this.offer?.server.close();this.offer=null}
  close(){this.endOffer();if(this.udp)try{this.udp.close()}catch{}}

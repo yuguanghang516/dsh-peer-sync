@@ -1,6 +1,6 @@
 {
   "name": "dsh-peer-sync",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "DSH LAN sync plugin: keep Windows DeepSeek Harness and Android DSH Go sessions, shared files and plugins in step over Wi-Fi.",
   "type": "module",
   "main": "index.js",

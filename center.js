@@ -84,7 +84,8 @@ export function setupCenter(ctx,home,defaults,start){
   controls.push(row(tr('本机自动整理','Organize this device'),organizer.enabled?tr('已开 · 点击关闭','On · Tap to turn off'):tr('已关 · 点击开启','Off · Tap to turn on'),organizer.enabled?'organizeOff':'organizeOn'))
   const target=link?(v.master.role===link.other?tr('请到主设备 ','Start on ')+name(link):v.master.role===link.cfg.device?tr('本机 → ','This device → ')+name(link):tr('本机 ⇄ ','This device ⇄ ')+name(link)):tr('先配对一台设备','Pair a device first')
   const selectionText=link?(v.mode==='all'?tr('全部聊天','All chats'):tr('选中的聊天','Selected chats'))+' · '+tr('本机 ','Local ')+selectedCount+tr(' 段',''):''
-  return {target,selectionText,allDevices,controls,deleteChats,preview,devices,wifi,wifiStatus:scanError|| (wifi.length?tr('同一局域网 · ','Local network · ')+wifi.length:tr('暂未发现在线设备','No devices found yet')),chats,master,
+  const workspace=link?tr('本机工作区  ','Local workspace  ')+link.cfg.workspace:''
+  return {target,workspace,selectionText,allDevices,controls,deleteChats,preview,devices,wifi,wifiStatus:scanError|| (wifi.length?tr('同一局域网 · ','Local network · ')+wifi.length:tr('暂未发现在线设备','No devices found yet')),chats,master,
    transferMode:tr('手动同步','Manual sync')+' · '+(v?.pushEnabled?tr('主设备发送已开','Primary sending on'):tr('主设备发送已关','Primary sending off'))+' · '+(v?.allowDelete?tr('允许对端主设备删除','Peer deletion allowed'):tr('对端删除已关','Peer deletion off')),
    deleteInfo:deletion&&link&&deletion.key===linkKey(link.cfg)?tr('待确认删除：','Confirm removal: ')+deletion.title+' · '+tr('本机或 ','This device or ')+name(link):deleteMode?tr('点一条聊天预览删除','Tap one chat to review deletion'):'',
    deleteActions:deletion&&link&&deletion.key===linkKey(link.cfg)?[row(tr('确认删除本机这一条','Delete this local chat'),deletion.title,'deleteLocal',{key:deletion.key,nonce:deletion.nonce}),row(tr('确认只删除对端这一条','Delete only on peer'),name(link),'deletePeer',{key:deletion.key,nonce:deletion.nonce}),row(tr('取消','Cancel'),'','cancelDelete')]:[],
@@ -155,7 +156,7 @@ export function setupCenter(ctx,home,defaults,start){
     const pages=buttons(btn('上一页','Previous','prev'),btn('下一页','Next','next'))
     const home=[text('wifiStatus'),list('allDevices'),text('target'),text('selectionText'),primary(tr('同步一次','Sync once'),'sync'),buttons(btn('选择聊天','Choose chats','openChats'),btn('设备设置','Device settings','openSettings')),buttons(btn('配对新设备','Pair a device','openPair'),btn('刷新设备','Refresh','scan'))]
     const chats=[text('target'),text('scope'),buttons(btn('全部聊天','All chats','all'),btn('只同步勾选项','Selected only','some')),search,list('chats'),pages]
-    const settings=[text('target'),list('controls')]
+    const settings=[text('target'),text('workspace'),list('controls')]
     const roles=[text('target'),buttons(btn('双向手动同步','Manual two-way','both'),btn('本机为主','This device primary','local'),btn('对端为主','Peer primary','peer'))]
     const remove=[text('target'),text('deleteInfo'),list('deleteActions'),search,list('deleteChats'),pages]
     const pair=[buttons(btn('创建邀请','Create invite','invite'),btn('查找附近设备','Find nearby','scan')),text('invitation'),list('nearby'),form('join',tr('确认配对','Pair'),[['address',tr('对方地址和端口','Peer IP:port')],['code',tr('20 位邀请码','20-character invitation code')]])]

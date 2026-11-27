@@ -2,17 +2,26 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import assert from 'node:assert/strict'
+import {pairingWorkspace} from './index.js'
 import {Pairing} from './pairing.js'
 import {LinkPolicy} from './policy.js'
 import {serve,exchange} from './lan.js'
 const root=await fs.mkdtemp(path.join(os.tmpdir(),'dsh-peer-visual-'))
-const hosts=[],clients=[],a=new Pairing(path.join(root,'a'),()=>({}),c=>hosts.push(c)),b=new Pairing(path.join(root,'b'),()=>({}),c=>clients.push(c))
+const hosts=[],clients=[]
+const hostWorkspace=await fs.mkdtemp(path.join(root,'host-custom-'))
+const clientWorkspace=await fs.mkdtemp(path.join(root,'client-custom-'))
+const configure=w=>async()=>({workspace:await pairingWorkspace({list:()=>[{path:path.join(root,'missing')},{path:w}]})})
+const a=new Pairing(path.join(root,'a'),configure(hostWorkspace),c=>hosts.push(c))
+const b=new Pairing(path.join(root,'b'),configure(clientWorkspace),c=>clients.push(c))
 let srv
 try{
+ await assert.rejects(pairingWorkspace({list:()=>[]}),/Open or create a DSH workspace/)
  await a.init();await b.init();const invite=await a.invite(),address='127.0.0.1:'+invite.port
  await assert.rejects(b.join(address,'00000000000000000000'))
  await b.join(address,invite.code)
  assert.equal(hosts.length,1);assert.equal(clients.length,1);assert.equal(hosts[0].lan.key,clients[0].lan.key)
+ assert.equal(hosts[0].workspace,await fs.realpath(hostWorkspace))
+ assert.equal(clients[0].workspace,await fs.realpath(clientWorkspace))
  const pa=new LinkPolicy(hosts[0],'phone-b'),pb=new LinkPolicy(clients[0],'phone-a')
  const dirs=['ao','ai','bo','bi'].map(n=>path.join(root,n))
  for(const d of dirs)await fs.mkdir(d)

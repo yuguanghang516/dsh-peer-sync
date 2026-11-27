@@ -74,13 +74,25 @@ export async function transfer(ctx,workspace,cwd,snapshot) {
   await workspace.attachSession(header.id)
 }
 
+export async function pairingWorkspace(registry, preferred) {
+ const choices=[preferred,...(registry.list?.()||[]).map(workspace=>workspace.path)]
+ for(const candidate of choices){
+  if(!candidate||!path.isAbsolute(candidate))continue
+  try{
+   const canonical=await fs.realpath(candidate)
+   if((await fs.stat(canonical)).isDirectory())return canonical
+  }catch(e){if(!['ENOENT','ENOTDIR','EACCES','EPERM'].includes(e.code))throw e}
+ }
+ throw Error('请先在 DSH 打开或创建一个工作区，再回来配对 / Open or create a DSH workspace and try again')
+}
+
 export function apply(ctx,cfg={}) {
  const home=process.env.DSH_HOME||path.join(os.homedir(),'.dsh')
  if(cfg.device)return startLink(ctx,cfg)
  let initial
  try{initial=JSON.parse(readFileSync(path.join(home,'peer-sync-settings.json'),'utf8'))}catch(e){if(e.code!=='ENOENT')ctx.logger.warn(e.message)}
- const defaults=()=>{const c=initial||[...links.values()][0]?.cfg||{};const workspace=c.workspace||path.join(os.homedir(),'workspace')
- return {workspace,profileDirectory:c.profileDirectory||path.join(home,'profiles',process.platform==='win32'?'desktop':'web'),sharedDirectory:c.sharedDirectory||path.join(workspace,'DSH-Shared'),syncAllPlugins:c.syncAllPlugins??false,portablePlugins:c.portablePlugins||[],autoInstallPlugins:c.autoInstallPlugins||[]}}
+ const defaults=async()=>{const c=initial||[...links.values()][0]?.cfg||{};const workspace=await pairingWorkspace(ctx.workspaceRegistry,c.workspace)
+ return {workspace,profileDirectory:c.profileDirectory||path.join(home,'profiles',process.platform==='win32'?'desktop':'web'),sharedDirectory:(c.workspace===workspace&&c.sharedDirectory)||path.join(workspace,'DSH-Shared'),syncAllPlugins:c.syncAllPlugins??false,portablePlugins:c.portablePlugins||[],autoInstallPlugins:c.autoInstallPlugins||[]}}
  const center=setupCenter(ctx,home,defaults,c=>{if(!links.has(linkKey(c)))startLink(ctx,c)})
  if(process.platform==='win32')startDesktopPanel(ctx,center)
 
