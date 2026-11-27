@@ -1,3 +1,7 @@
+import {organizerFor} from './organizer.js'
+import {LinkPolicy} from './policy.js'
+import {links,linkKey,setupCenter} from './center.js'
+import {startDesktopPanel} from './desktop-panel.js'
 import {collectAttachments,syncAttachments} from './attachments.js'
 import {scheduleUpdates} from './update.js'
 import {syncFiles,packAddons,receiveAddons} from './extras.js'
@@ -69,6 +73,15 @@ export async function transfer(ctx,workspace,cwd,snapshot) {
 }
 
 export function apply(ctx,cfg={}) {
+ const home=process.env.DSH_HOME||path.join(os.homedir(),'.dsh')
+ if(cfg.device)return startLink(ctx,cfg)
+ let initial
+ try{initial=JSON.parse(readFileSync(path.join(home,'peer-sync-settings.json'),'utf8'))}catch(e){if(e.code!=='ENOENT')ctx.logger.warn(e.message)}
+ const defaults=()=>{const c=initial||[...links.values()][0]?.cfg||{};const workspace=c.workspace||path.join(os.homedir(),'workspace')
+ return {workspace,profileDirectory:c.profileDirectory||path.join(home,'profiles',process.platform==='win32'?'desktop':'web'),sharedDirectory:c.sharedDirectory||path.join(workspace,'DSH-Shared'),syncAllPlugins:c.syncAllPlugins??false,portablePlugins:c.portablePlugins||[],autoInstallPlugins:c.autoInstallPlugins||[]}}
+ const center=setupCenter(ctx,home,defaults,c=>{if(!links.has(linkKey(c)))startLink(ctx,c)})
+ if(process.platform==='win32')startDesktopPanel(ctx,center)
+
   ctx.inject?.(['dshGo'],(c)=>{
     c.dshGo?.strip?.('peer-sync-status',(scope,emit,caps)=>{
       const en=String(caps?.locale||'').startsWith('en')
@@ -85,7 +98,9 @@ export function apply(ctx,cfg={}) {
       return ()=>clearInterval(timer)
     })
   })
-  if(!cfg.device){const home=process.env.DSH_HOME||path.join(os.homedir(),'.dsh');try{cfg=JSON.parse(readFileSync(path.join(home,'peer-sync-settings.json'),'utf8'))}catch(e){ctx.logger.warn('Peer sync settings unavailable: '+e.code);return}}
+  if(initial)startLink(ctx,initial)
+}
+function startLink(ctx,cfg){
   scheduleUpdates(ctx,cfg)
   const side=cfg.device, directory=cfg.exchange, root=cfg.workspace
   if(peers.has(side)&&path.isAbsolute(directory||'')&&path.isAbsolute(root||'')){status.paired=true;status.side=side;status.peer=peers.get(side)}
@@ -106,14 +121,21 @@ export function apply(ctx,cfg={}) {
     const receipt=await fs.stat(path.join(directory,'receipts',agent.id+'.json')).catch(()=>null)
     if(receipt)agent.model.select({...route,provider:defaults.provider})
   })
+  const policy=new LinkPolicy(cfg,peers.get(side)),ready=policy.load()
+  const link={cfg,policy,other:peers.get(side),tick,contact:0,error:null}
+  cfg.lan={...cfg.lan,policy,onContact:()=>{link.contact=Date.now()}}
+  links.set(linkKey(cfg),link)
+  const organizer=organizerFor(process.env.DSH_HOME||path.join(os.homedir(),'.dsh'))
+  ctx.effect(()=>organizer.register(link))
   const seen=new Map()
-  const refs=new Map()
+  const sessionRefs=new Map()
   const attachmentRoot=path.join(cfg.profileDirectory ? path.dirname(path.dirname(cfg.profileDirectory)) : (process.env.DSH_HOME||path.join(os.homedir(),'.dsh')),'attachments','v1')
   let running=false,stopped=false,server
   async function tick(){
     if(running||stopped)return
     running=true
     try {
+      await ready
       const cwd=await fs.realpath(root)
       await fs.mkdir(mine,{recursive:true})
       if(cfg.profileDirectory){
@@ -130,36 +152,56 @@ export function apply(ctx,cfg={}) {
       }
       const ws=await ctx.workspaceRegistry.resolveByPath(cwd) ?? await ctx.workspaceRegistry.create(cwd)
       const rows=await ctx.sessionPersistence.list();await atomic(path.join(directory,'source-status.json'),{paths:[...new Set(rows.map(r=>r.header?.cwd??r.cwd??null))],count:rows.length});
+      await organizer.ready
+      await organizer.run(ctx,cwd,rows)?.catch(e=>ctx.logger.warn('Chat organizer: '+e.message))
+      const present=new Set()
       for(const row of rows){
         if(stopped)return
         const {id}=row.header
         if(!validId.test(id)||!row.header.cwd||!([root,...(cfg.previousWorkspacePaths||[])].includes(row.header.cwd)||path.resolve(row.header.cwd)===cwd))continue
+        present.add(id)
         try{
           const file=path.join(mine,id+'.json'), revision=JSON.stringify(row.revision)
-          if(seen.get(id)===revision && await fs.stat(file).catch(()=>null))continue
+          const selected=policy.selected(id)
+          const cacheKey=(selected?'export:':'catalog:')+revision
+          if(seen.get(id)===cacheKey && (!selected || await fs.stat(file).catch(()=>null)))continue
           const h=await ctx.sessionPersistence.open(id,'read')
-          try{const {events}=await h.read();collectAttachments(events,refs);await atomic(file,{version:1,header:h.header,cut:h.inheritedEventCount,events})}finally{await h.close()}
-          seen.set(id,revision)
+          try {
+            const {events}=await h.read()
+            const title=events.findLast(e=>e.type==='session/title')?.data?.title
+            const ownRefs=new Map()
+            if(selected){
+              collectAttachments(events,ownRefs)
+              await atomic(file,{version:1,header:h.header,cut:h.inheritedEventCount,events})
+            }
+            policy.record(id,title,ownRefs)
+            sessionRefs.set(id,ownRefs)
+          }finally{await h.close()}
+          seen.set(id,cacheKey)
         }catch(e){await atomic(path.join(directory,'export-error.json'),{id,message:e.message});ctx.logger.warn(id+': '+e.message)}
       }
+      for(const id of policy.catalog.keys())if(!present.has(id)){policy.catalog.delete(id);policy.hashes.delete(id);seen.delete(id);sessionRefs.delete(id)}
+      const refs=new Map()
+      for(const [id,entries] of sessionRefs)if(policy.selected(id))for(const [key,hash] of entries)refs.set(key,hash)
       const missing=await syncAttachments(attachmentRoot,mine,peer,refs)
       await atomic(path.join(directory,'attachment-status.json'),{missing})
       await syncFiles(cfg,mine,peer);await packAddons(cfg,mine);
       if(cfg.lan?.bind && !server)server=await serve(cfg.lan,mine,peer)
       if(cfg.lan?.host)await exchange(cfg.lan,mine,peer)
       await receiveAddons(cfg,peer);await fs.rm(path.join(directory,'last-error.json'),{force:true});
-      status.lastOkAt=Date.now();status.lastError=null
+      link.error=null;status.lastOkAt=Date.now();status.lastError=null
       await atomic(path.join(directory,'network-status.json'),{device:side,checked:new Date().toISOString(),role:cfg.lan?.bind?'listener':'client'});
       const files=await fs.readdir(peer).catch(e=>{if(e.code==='ENOENT')return [];throw e})
       for(const name of files){
         if(stopped)return
-        if(!name.endsWith('.json')||!validId.test(name.slice(0,-5)))continue
+        if(!policy.allowed(name,'receive')||!name.endsWith('.json')||!validId.test(name.slice(0,-5)))continue
         try{
           const snap=JSON.parse(await fs.readFile(path.join(peer,name),'utf8'))
           if(name!==snap.header.id+'.json')throw Error('Session ID mismatch')
           const incomingRefs=new Map()
           collectAttachments(snap.events,incomingRefs)
-          for(const [key,value] of incomingRefs)refs.set(key,value)
+          if(!policy.hashes.has(snap.header.id))policy.hashes.set(snap.header.id,new Set(incomingRefs.values()))
+          for(const hash of incomingRefs.values())policy.hashes.get(snap.header.id).add(hash)
           await syncAttachments(attachmentRoot,mine,peer,incomingRefs)
           try{await transfer(ctx,ws,cwd,snap)}
           catch(e){
@@ -171,11 +213,12 @@ export function apply(ctx,cfg={}) {
             const hex=createHash('sha256').update(JSON.stringify([snap.header.id,idx,snap.events[idx]])).digest('hex')
             const branch='session-'+[hex.slice(0,8),hex.slice(8,12),'4'+hex.slice(13,16),'8'+hex.slice(17,20),hex.slice(20,32)].join('-')
             await transfer(ctx,ws,cwd,{...snap,header:{...snap.header,id:branch}})
+            await policy.conflict(snap.header.id,branch)
           }
           await fs.mkdir(path.join(directory,'receipts'),{recursive:true});await atomic(path.join(directory,'receipts',name),{id:snap.header.id,events:snap.events.length})
         }catch(e){await atomic(path.join(directory,'import-error.json'),{name,message:e.message});ctx.logger.warn(name+': '+e.message)}
       }
-    }catch(e){status.lastError=e.message;await atomic(path.join(directory,'last-error.json'),{message:e.message}).catch(()=>{});ctx.logger.warn('Peer sync: '+e.message)}finally{running=false}
+    }catch(e){link.error=e.message;status.lastError=e.message;await atomic(path.join(directory,'last-error.json'),{message:e.message}).catch(()=>{});ctx.logger.warn('Peer sync: '+e.message)}finally{running=false}
   }
-  ctx.effect(()=>{const timer=setInterval(tick,30000);void tick();return ()=>{stopped=true;clearInterval(timer);server?.close()}})
+  ctx.effect(()=>{const timer=setInterval(tick,30000);void tick();return ()=>{stopped=true;if(links.get(linkKey(cfg))===link)links.delete(linkKey(cfg));clearInterval(timer);server?.close()}})
 }

@@ -1,5 +1,7 @@
 # DSH Peer Sync
 
+**Automatic chat organization (0.8.3)** is off by default. Turn it on in the sync center for each device. Exact synced copies within the same workspace are archived after full-history and metadata verification. Pinned, active and divergent conversations are preserved. Turn the organizer off before manually restoring a copy you want to keep visible.
+
 [![npm](https://img.shields.io/npm/v/dsh-peer-sync?label=npm&color=cb3837)](https://www.npmjs.com/package/dsh-peer-sync)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DSH](https://img.shields.io/badge/DSH-%E2%89%A50.2.2--rc.1%20%3C0.3-4B5563)](package.json)
@@ -63,3 +65,13 @@ Run both DSH Go local engines on the same Wi-Fi. Generate one fresh pair with `p
 Existing phone pairs can enable this in both pairing settings with `"syncAllPlugins": true` (JSON). Restart both engines after upgrading. Peer Sync itself is updated separately on each device. Plugin settings, accounts and keys stay local. The archive limit is 16 MiB. Dependencies may require internet access. Check plugin-pack-status and plugin-install-status in the exchange directory for individual failures.
 
 Version 0.7.2 also transfers images returned by tools. Attachments are verified by SHA-256; the per-object transfer limit is 64 MiB. Upgrade both ends. Missing hashes are listed in attachment-status.json in the exchange directory.
+## Mobile sync center (0.8.1)
+
+Open **LAN peer sync** from a DSH Go chat or **Sync center** from Features. On Windows, start the DSH engine and open http://127.0.0.1:39580 on the same computer.
+
+1. Connect both devices to the same Wi-Fi or hotspot. Choose **Pair devices → Create invite** on one device. On the other, choose **Find nearby**, select the inviter and enter the 20-character code. You can enter the displayed IP and port manually. Invitations expire after five minutes and the inviter needs OpenSSL.
+2. Select a peer, then choose **Two-way**, **This device primary** or **Peer primary**. Both sides can continue a chat. If they edit independently, both versions survive and the preferred branch is marked in the plugin chat list.
+3. Open **Choose chats → Selected only** and tap individual local chat titles. A chat present only on the other device can be selected there. Updated peers share the selection. New pairs start with no chats selected. Existing pairs keep syncing all chats until changed. Deselecting keeps copies already received.
+4. Both engines check about every 30 seconds while running. **Sync now** requests a check. Chat attachments follow selected chats; shared files and plugins use their own existing settings. Resume the mobile engine after Android suspends it.
+
+

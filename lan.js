@@ -10,22 +10,25 @@ const jsonName = /^(plugins|(?:data|addon)-[a-f0-9]{64}|session-[a-z0-9-]{1,100}
 const allowed={test:name=>jsonName.test(name)||blob.test(name)}
 const limit = 64 * 1024 * 1024
 const digest = b => createHash('sha256').update(b).digest('hex')
-async function body(stream) {
+async function body(stream,max=limit) {
   const chunks=[]; let size=0
   for await(const chunk of stream){
     size+=chunk.length
-    if(size>limit) throw Error('Snapshot exceeds 64 MiB')
+    if(size>max) throw Error('Snapshot exceeds 64 MiB')
     chunks.push(chunk)
   }
   return Buffer.concat(chunks)
 }
-async function manifest(dir, blobs=true){
+const digestCache=new Map()
+async function manifest(dir, blobs=true, filter=()=>true){
   const result={}
   for(const name of await fs.readdir(dir)){
-    if(allowed.test(name) && (blobs||!blob.test(name))){
+    if(filter(name) && allowed.test(name) && (blobs||!blob.test(name))){
       const file=path.join(dir,name)
-      if((await fs.stat(file)).size>limit)throw Error('Snapshot exceeds 64 MiB: '+name)
-      result[name]=digest(await fs.readFile(file))
+      const st=await fs.stat(file,{bigint:true});if(st.size>limit)throw Error('Snapshot exceeds 64 MiB: '+name)
+      const rev=[st.ino,st.size,st.ctimeNs,st.mtimeNs].join(':');let entry=digestCache.get(file)
+      if(entry?.rev!==rev){entry={rev,hash:digest(await fs.readFile(file))};if(digestCache.size>8192)digestCache.clear();digestCache.set(file,entry)}
+      result[name]=entry.hash
     }
   }
   return result
@@ -50,11 +53,17 @@ export async function serve(cfg,mine,peer){
     try{
       if(!lanIP(req.socket.remoteAddress||'')){res.writeHead(403).end();return}
       if(req.headers.authorization!=='Bearer '+cfg.key){res.writeHead(403).end();return}
+      cfg.onContact?.(req.socket.remoteAddress)
+      if(req.url==='/preferences'&&req.method==='POST'&&cfg.policy){
+        const raw=await body(req,1024*1024);await cfg.policy.mergeSelection(JSON.parse(raw));res.end(JSON.stringify(cfg.policy.preferences()));return
+      }
       if(req.url==='/manifest'&&req.method==='GET'){
-        res.end(JSON.stringify({attachments:true,local:await manifest(mine,req.headers['x-peer-attachments']==='1'),received:await manifest(peer)}));return
+        if(req.headers['x-peer-primary'])await cfg.policy?.merge(JSON.parse(req.headers['x-peer-primary']))
+        res.end(JSON.stringify({attachments:true,selection:!!cfg.policy,selectionStamp:cfg.policy?.value.selection,master:cfg.policy?.value.master,local:await manifest(mine,req.headers['x-peer-attachments']==='1',n=>cfg.policy?.allowed(n,'send')!==false),received:await manifest(peer)}));return
       }
       const name=req.url.slice(1)
       if(!allowed.test(name)){res.writeHead(404).end();return}
+      if(cfg.policy?.allowed(name,req.method==='GET'?'send':'receive')===false){res.writeHead(req.method==='PUT'?204:404).end();return}
       if(req.method==='GET'){const file=path.join(mine,name);if((await fs.stat(file)).size>limit)throw Error();res.end(await fs.readFile(file));return}
       if(req.method==='PUT'){await save(peer,name,await body(req));res.writeHead(204).end();return}
       res.writeHead(405).end()
@@ -71,21 +80,28 @@ async function direct(cfg,mine,peer){
     return new Promise((ok,fail)=>{
       const req=https.request({...tls,hostname:cfg.host,port:cfg.port||39463,method,path:uri,agent:false,
         // Pin the paired device certificate and require the matching DNS identity.
-        servername:'dsh-peer.local',ca:readFileSync(cfg.certFile),headers:{'x-peer-attachments':'1',authorization:'Bearer '+cfg.key}},async res=>{
+        servername:'dsh-peer.local',ca:readFileSync(cfg.certFile),headers:{...(cfg.policy?{'x-peer-primary':JSON.stringify(cfg.policy.value.master)}:{}),'x-peer-attachments':'1',authorization:'Bearer '+cfg.key}},async res=>{
           try{if(res.statusCode>=300)throw Error('Sync HTTP '+res.statusCode);ok(await body(res))}catch(e){fail(e)}
         })
       req.setTimeout(30000,()=>req.destroy(Error('Peer timeout')))
       req.on('error',fail);req.end(data)
     })
   }
-  const remote=JSON.parse((await request('GET','/manifest')).toString())
-  const local=await manifest(mine),received=await manifest(peer)
+  let remote=JSON.parse((await request('GET','/manifest')).toString())
+  if(remote.selection&&cfg.policy){
+    const before=JSON.stringify(cfg.policy.value.selection)
+    const reply=await request('POST','/preferences',Buffer.from(JSON.stringify(cfg.policy.preferences())))
+    await cfg.policy.mergeSelection(JSON.parse(reply))
+    if(before!==JSON.stringify(cfg.policy.value.selection)||JSON.stringify(remote.selectionStamp)!==JSON.stringify(cfg.policy.value.selection))remote=JSON.parse(await request('GET','/manifest'))
+  }
+  await cfg.policy?.merge(remote.master);cfg.onContact?.(cfg.host)
+  const local=await manifest(mine,true,n=>cfg.policy?.allowed(n,'send')!==false),received=await manifest(peer)
   for(const [name,hash] of Object.entries(local)){
     if((remote.attachments||!blob.test(name)) && hash!==remote.received[name])await request('PUT','/'+name,await fs.readFile(path.join(mine,name)))
   }
   for(const [name,hash] of Object.entries(remote.local)){
     if(!allowed.test(name))throw Error('Unexpected manifest entry')
-    if(hash===received[name])continue
+    if(cfg.policy?.allowed(name,'receive')===false||hash===received[name])continue
     const bytes=await request('GET','/'+name)
     if(digest(bytes)===hash)await save(peer,name,bytes)
   }

@@ -1,0 +1,15 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DSH 同步中心</title>
+<style>*{box-sizing:border-box}body{font:16px system-ui,sans-serif;background:#f4f6f5;color:#192f2b;margin:0}main{max-width:840px;margin:auto;padding:24px}section{background:white;padding:22px;margin:16px 0;border:1px solid #d5dedb;border-radius:12px}h1{font-size:28px}h2{font-size:19px;margin:0 0 14px}button,input{font:inherit;padding:9px;border:1px solid #bacbc6;border-radius:7px;background:white;margin:3px}button{cursor:pointer}button:hover,button:focus{background:#e2f3eb}small,p{color:#475f56}output{display:block;overflow-wrap:anywhere}.rows button{display:block;text-align:left;width:100%}</style>
+<main><h1>DSH 同步中心</h1><section><h2>已配对设备</h2><div class="rows" id="devices"></div><p id="summary"></p><p>双向合并。当双方分别续写时，聊天清单标记主设备的分支并保留双方记录。</p><div id="roles"></div><output id="status"></output></section>
+<section><h2>选择此配对要同步的聊天</h2><div id="modes"></div><input id="query" placeholder="搜索聊天标题"><button id="search">搜索</button><p id="scope"></p><div class="rows" id="chats"></div><div id="pages"></div></section>
+<section><h2>自动整理聊天记录</h2><p id="organizer"></p><div id="organizeActions"></div></section>
+<section><h2>配对设备</h2><div id="inviteButtons"></div><p id="invitation"></p><div class="rows" id="nearby"></div><input id="address" placeholder="对方地址:端口"><input id="code" placeholder="20 位邀请码" autocomplete="off" maxlength="20"><button id="join">确认配对</button></section></main>
+<script>
+const el=id=>document.getElementById(id);let current='',busy=false;
+function button(parent,label,fn){const b=document.createElement('button');b.textContent=label;b.onclick=fn;el(parent).append(b)}
+function render(s){current=s.key;for(const k of ['devices','chats','nearby']){el(k).replaceChildren();for(const row of s[k])button(k,row.title+' · '+row.subtitle,()=>row.action&&run(row.action.id,row.action.args))}
+for(const k of ['summary','scope','invitation','organizer'])el(k).textContent=s[k];el('status').textContent=s.last}
+async function run(action,args={}){if(busy)return;busy=true;try{const r=await fetch('/panel',action?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,args:{key:current,...args}})}:{});const s=await r.json();if(!r.ok)throw Error(s.error||r.status);render(s);if(action==='near')el('address').value=args.address;if(action==='join')el('code').value=''}catch(e){el('status').textContent=e.message}finally{busy=false}}
+for(const [id,items] of Object.entries({organizeActions:[['开启自动整理','organizeOn'],['关闭自动整理','organizeOff']],roles:[['双向','both'],['本机为主','local'],['对端为主','peer'],['立即同步','sync']],modes:[['全部聊天','all'],['仅选中','some']],pages:[['上一页','prev'],['下一页','next']],inviteButtons:[['创建五分钟邀请','invite'],['查找附近设备','scan']]}))for(const [label,act] of items)button(id,label,()=>run(act));
+el('search').onclick=()=>run('search',{query:el('query').value});el('join').onclick=()=>run('join',{address:el('address').value,code:el('code').value});run();setInterval(()=>{if(!document.hidden)run()},10000)
+</script></html>

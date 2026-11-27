@@ -1,6 +1,6 @@
 {
   "name": "dsh-peer-sync",
-  "version": "0.7.5",
+  "version": "0.8.3",
   "description": "DSH LAN sync plugin: keep Windows DeepSeek Harness and Android DSH Go sessions, shared files and plugins in step over Wi-Fi.",
   "type": "module",
   "main": "index.js",
@@ -16,7 +16,13 @@
     "README.md",
     "README.en.md",
     "attachments.js",
-    "LICENSE"
+    "LICENSE",
+    "center.js",
+    "policy.js",
+    "organizer.js",
+    "pairing.js",
+    "desktop-panel.js",
+    "panel.html"
   ],
   "keywords": [
     "dsh-plugin",
@@ -48,7 +54,44 @@
       "composer.strip": [
         {
           "id": "peer-sync-status",
-          "icon": "refresh"
+          "icon": "refresh",
+          "panel": "peer-home"
+        }
+      ],
+      "panels": [
+        {
+          "id": "peer-home",
+          "title": {
+            "zh": "同步中心",
+            "en": "Sync center"
+          },
+          "icon": "refresh",
+          "placement": [
+            "features",
+            "chat.panel"
+          ]
+        },
+        {
+          "id": "peer-pair",
+          "title": {
+            "zh": "配对设备",
+            "en": "Pair devices"
+          },
+          "icon": "team",
+          "placement": [
+            "features"
+          ]
+        },
+        {
+          "id": "peer-chats",
+          "title": {
+            "zh": "选择聊天",
+            "en": "Choose chats"
+          },
+          "icon": "chats",
+          "placement": [
+            "features"
+          ]
         }
       ]
     }
