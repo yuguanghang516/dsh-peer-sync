@@ -6,7 +6,7 @@ Manually sync selected chats between DeepSeek Harness on Windows and DSH Go on A
 
 ## Install
 
-Download the same **dsh-peer-sync-`<version>`.tgz** from the GitHub release on both devices. Installing by package name currently gets the older npm release, 0.7.5.
+Download the same **dsh-peer-sync-`<version>`.tgz** from the GitHub release on both devices. You can also install from npm. Use `dsh plugin --profile desktop add dsh-peer-sync@0.9.3` on Windows or `dsh plugin --profile web add dsh-peer-sync@0.9.3` in the DSH Go local engine terminal.
 
 - **Windows DSH**: Open the desktop app once to initialize its profile, then fully quit it, including the tray process. Run `dsh plugin --profile desktop add "file:C:/path/dsh-peer-sync-<version>.tgz"`. The desktop app typically ships its CLI at `resources/runtime/cli/bin/dsh.cmd` inside its installation directory.
 - **Android DSH Go**: Save the package to Downloads. In the DSH Go local engine terminal run `dsh plugin --profile web add "file:/sdcard/Download/dsh-peer-sync-<version>.tgz"`.
